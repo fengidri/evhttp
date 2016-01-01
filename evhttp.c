@@ -307,6 +307,21 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 
 int main(int argc, char **argv)
 {
+    int ch;
+    while ((ch = getopt(argc, argv, "o:h:p:m:")) != -1) {
+        switch (ch) {
+            case 'h':
+                printf("host is %s\n", optarg);
+                strncpy(server_host, optarg, 15);
+                break;
+            case 'p':
+                printf("port is %s\n", optarg);
+                server_port = atoi(optarg);
+                /*strncpy(server_ip, optarg, 15);*/
+                break;
+        }
+    }
+
     el = aeCreateEventLoop(129);
     int fd =  http_connect();
     aeCreateFileEvent(el, fd, AE_WRITABLE, send_request, NULL);
