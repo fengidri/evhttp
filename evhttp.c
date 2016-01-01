@@ -23,13 +23,21 @@
 
 static char server_host[20] = "127.0.0.1";
 static int server_port = 80;
+static int parallel = 1;
+static int total_request = 1;
+static char *http_host = "archlinux";
+static char *flag = "M";
 static aeEventLoop *el;
+static int Index;
+static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY";
 
 struct response{
+    char url[1024];
     char buf[4 * 1024];
     int buf_offset;
     bool read_header;
     bool chunked;
+    int fd;
     int status;
     int content_length;
     int content_recv;
@@ -42,6 +50,20 @@ struct response{
 #define EV_AG  -3
 
 #define logerr(fmt, ...)
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+int http_new();
+void http_destory(struct response *);
+
+char* strnstr(char* s1, char* s2, size_t size)
+{
+    char c;
+    char *p;
+    c = s1[size -1];
+    s1[size - 1] = 0;
+    p = strstr(s1, s2);
+    s1[size - 1] = c;
+    return p;
+}
 
 int net_noblock(int fd, bool b)
 {
@@ -104,7 +126,7 @@ int process_header(struct response *res)
     char *pos;
     int length = 0;
 
-    pos = strstr(res->buf, "\r\n\r\n");
+    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
     if (!pos)
         return EV_AG;
     res->read_header = false;
@@ -120,7 +142,7 @@ int process_header(struct response *res)
         i++;
     }
 
-    pos = strstr(res->buf, "content-length:");
+    pos = strnstr(res->buf, "content-length:", length);
     if (pos)
     {
         res->content_length = atoi(pos + 15);
@@ -128,7 +150,7 @@ int process_header(struct response *res)
         return EV_OK;
     }
 
-    pos = strstr(res->buf, "transfer-encoding:");
+    pos = strnstr(res->buf, "transfer-encoding:", length);
     if (pos)
     {
         res->buf_offset = res->buf_offset - length;
@@ -162,6 +184,32 @@ int net_recv(int fd, char *buf, size_t len)
     return n;
 }
 
+void make_url(char *url, size_t size)
+{
+    size_t l, c, len;
+    int index = Index;
+    Index += 1;
+
+    url[0] = '/';
+    url[1] = 0;
+    strcat(url, flag);
+    l = strlen(url);
+    url[l] = '/';
+    ++l;
+
+    len = strlen(letters);
+    while (index)
+    {
+        c = index % len;
+        url[l] = letters[c];
+        ++l;
+        index = index / len;
+    }
+
+    url[l] = 0;
+
+}
+
 int recv_header(int fd, struct response *res)
 {
     int n;
@@ -174,7 +222,6 @@ int recv_header(int fd, struct response *res)
         if (n == 0) return EV_ERR;
 
         res->buf_offset += n;
-        res->buf[res->buf_offset] = 0;
 
         if (EV_OK == process_header(res))
         {
@@ -219,15 +266,56 @@ int recv_no_chunked(int fd, struct response *res)
 
 int recv_is_chunked(int fd, struct response *res)
 {
+    int n, size;
+    char *pos;
+
     if (res->chunk_length == -1)
     {
-        res->buf[res->buf_offset] = 0;
-        if (strstr(res->buf, "\r\n"))
+        while(1)
         {
-            res->chunk_length = strtol(res->buf, NULL, 16);
+            if (res->buf_offset > 2)
+            {
+                pos = strnstr(res->buf, "\r\n", res->buf_offset);
+                if (pos)
+                {
+                    res->chunk_length = strtol(res->buf, NULL, 16);
+                    if (0 == res->chunk_length) return EV_OK; // END
+
+                    res->content_recv += res->buf_offset - (pos - res->buf + 2);
+                    res->chunk_recv = res->buf_offset - (pos - res->buf + 2);
+                    goto chunk;
+                }
+            }
+            if (res->buf_offset > 300) return EV_ERR;
+
+            n = net_recv(fd, res->buf + res->buf_offset,
+                    sizeof(res->buf) - res->buf_offset);
+
+            if (n < 0) return n;
+            if (0 == n) return EV_ERR;
+            res->buf_offset += n;
         }
     }
 
+chunk:
+
+    while (1) // recv chunk
+    {
+        size = MIN(sizeof(res->buf), res->chunk_length + 2 - res->chunk_recv);
+        n = net_recv(fd, res->buf, size);
+        if (n < 0) return n;
+        if (n == 0) return EV_ERR;
+
+        res->content_recv += n;
+        res->chunk_recv += n;
+        if (res->chunk_recv - res->chunk_length == 2)
+        {
+            res->chunk_length = -1;
+            res->content_recv -= 2;
+            res->buf_offset = 0;
+            return recv_is_chunked(fd, res);
+        }
+    }
 }
 
 void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
@@ -250,7 +338,8 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     else{
         if (res->chunked)
             handle = recv_is_chunked;
-        handle = recv_no_chunked;
+        else
+            handle = recv_no_chunked;
 
         ret = handle(fd, res);
     }
@@ -260,70 +349,111 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     // END
     if (EV_ERR == ret)
     {
-        printf("Error!!!");
+        printf("Recv Response Error!!!\n");
     }
 
     if (EV_OK == ret)
     {
-        printf("Status: %d Recv-Length: %d\n", res->status, res->content_recv);
+        printf("Status: %d Recv-Length: %d URL: %s\n",
+                res->status, res->content_recv, res->url);
     }
 
-    free(priv);
-    aeDeleteFileEvent(el, fd, AE_READABLE);
-    close(fd);
-    aeStop(el);
+    http_destory(res);
 }
 
 
 void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 {
     int n;
-    char *request = "GET /index.html HTTP/1.1\r\n";
-    char *headers = "Host: archlinux\r\n"
+    struct response *res = priv;
+
+    char *request = "GET %s HTTP/1.1\r\n"
+                    "Host: %s\r\n"
                     "Content-Length: 0\r\n"
+                    "User-Agent: evhttp\r\n"
+                    "Accept: */*\r\n"
                     "\r\n";
-    n = send(fd, request, strlen(request), 0);
-    if (n < 0)
+    n = snprintf(res->buf, sizeof(res->buf), request, res->url, http_host);
+    if (n >= sizeof(res->buf))
     {
-        perror("send");
-        return;
+        http_destory(res);
+        return ;
     }
-    n = send(fd, headers, strlen(headers), 0);
+
+    n = send(fd, res->buf, n, 0);
     if (n < 0)
     {
-        perror("send");
-        return;
+        http_destory(res);
+        return ;
+    }
+
+    aeDeleteFileEvent(el, fd, AE_WRITABLE);
+    aeCreateFileEvent(el, fd, AE_READABLE, recv_response, res);
+}
+
+int http_new()
+{
+    if (total_request == 0) return 0;
+
+    int fd =  http_connect();
+    if (fd < 0){
+        return EV_ERR;
     }
 
     struct response *res;
     res = malloc(sizeof(*res));
     res->buf_offset = 0;
     res->read_header = true;
+    make_url(res->url, sizeof(res->url));
+    res->fd = fd;
 
+    aeCreateFileEvent(el, fd, AE_WRITABLE, send_request, res);
+    return EV_OK;
+}
 
-    aeDeleteFileEvent(el, fd, AE_WRITABLE);
-    aeCreateFileEvent(el, fd, AE_READABLE, recv_response, res);
+void http_destory(struct response *res)
+{
+    aeDeleteFileEvent(el, res->fd, AE_READABLE);
+    aeDeleteFileEvent(el, res->fd, AE_WRITABLE);
+    close(res->fd);
+    free(res);
+
+    total_request -= 1;
+
+    http_new();
 }
 
 int main(int argc, char **argv)
 {
     int ch;
-    while ((ch = getopt(argc, argv, "o:h:p:m:")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:")) != -1) {
         switch (ch) {
             case 'h':
-                printf("host is %s\n", optarg);
                 strncpy(server_host, optarg, 15);
                 break;
             case 'p':
-                printf("port is %s\n", optarg);
                 server_port = atoi(optarg);
-                /*strncpy(server_ip, optarg, 15);*/
+                break;
+            case 'l':
+                parallel = atoi(optarg);
+                break;
+
+            case 'H':
+                http_host = optarg;
+                break;
+
+            case 'f':
+                flag = optarg;
                 break;
         }
     }
+    printf("Start: Host: %s:%d Parallel: %d\n", server_host, server_port, parallel);
 
     el = aeCreateEventLoop(129);
-    int fd =  http_connect();
-    aeCreateFileEvent(el, fd, AE_WRITABLE, send_request, NULL);
+    while (parallel)
+    {
+        http_new();
+        parallel--;
+    }
     aeMain(el);
 }
