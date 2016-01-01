@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include "ae.h"
 
@@ -34,13 +35,15 @@ static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR
 
 struct config{
     const char *remote_addr;
+    char        remote_add_resolved[32];
     int         remote_port;
     int         parallel;
     int         total;
-    char        *http_host;
+    const char  *http_host;
     aeEventLoop *el;
     int         index;
     const char * flag;
+    struct hostent *hptr;
 };
 
 static struct config config;
@@ -444,7 +447,7 @@ void config_init(int argc, char **argv)
     config.remote_port = 80;
     config.parallel    = 1;
     config.total       = 1;
-    config.http_host   = "archlinux";
+    config.http_host   = NULL;
     config.index       = 0;
     config.flag        = "M";
 
@@ -460,6 +463,16 @@ void config_init(int argc, char **argv)
         }
     }
 
+    config.hptr = gethostbyname(config.remote_addr);
+    if (NULL == config.hptr)
+    {
+        logerr("gethostbyname error: %s\n", config.remote_addr);
+    }
+    inet_ntop(config.hptr->h_addrtype, *config.hptr->h_addr_list,
+        config.remote_add_resolved, sizeof(config.remote_add_resolved));
+
+    if (NULL == config.http_host) config.http_host = config.remote_addr;
+
     config.el = aeCreateEventLoop(config.parallel + 129);
 }
 
@@ -469,6 +482,8 @@ int main(int argc, char **argv)
     printf("Start: Host: %s:%d Parallel: %d\n",
             config.remote_addr, config.remote_port, config.parallel);
 
+
+    return;
     int p = config.parallel;
     while (p)
     {
