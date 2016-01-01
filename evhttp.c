@@ -21,15 +21,29 @@
 
 #include "ae.h"
 
-static char server_host[20] = "127.0.0.1";
-static int server_port = 80;
-static int parallel = 1;
-static int total_request = 1;
-static char *http_host = "archlinux";
-static char *flag = "M";
-static aeEventLoop *el;
-static int Index;
+//static char server_host[20] = "127.0.0.1";
+//static int server_port = 80;
+//static int parallel = 1;
+//static int total_request = 1;
+//static char *http_host = "archlinux";
+//static char *flag = "M";
+//static aeEventLoop *el;
+//static int Index;
+
 static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY";
+
+struct config{
+    const char *remote_addr;
+    int         remote_port;
+    int         parallel;
+    int         total;
+    char        *http_host;
+    aeEventLoop *el;
+    int         index;
+    const char * flag;
+};
+
+static struct config config;
 
 struct response{
     char url[1024];
@@ -51,6 +65,7 @@ struct response{
 
 #define logerr(fmt, ...)
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 int http_new();
 void http_destory(struct response *);
 
@@ -105,8 +120,8 @@ int http_connect()
     struct sockaddr_in remote_addr; //服务器端网络地址结构体
     memset(&remote_addr,0,sizeof(remote_addr)); //数据初始化--清零
     remote_addr.sin_family = AF_INET; //设置为IP通信
-    remote_addr.sin_addr.s_addr = inet_addr(server_host);//服务器IP地址
-    remote_addr.sin_port = htons(server_port); //服务器端口号
+    remote_addr.sin_addr.s_addr = inet_addr(config.remote_addr);//服务器IP地址
+    remote_addr.sin_port = htons(config.remote_port); //服务器端口号
 
     int ret = connect(s, (struct sockaddr*)&remote_addr, sizeof(struct sockaddr));
     while(ret < 0) {
@@ -187,12 +202,12 @@ int net_recv(int fd, char *buf, size_t len)
 void make_url(char *url, size_t size)
 {
     size_t l, c, len;
-    int index = Index;
-    Index += 1;
+    int index = config.index;
+    config.index += 1;
 
     url[0] = '/';
     url[1] = 0;
-    strcat(url, flag);
+    strcat(url, config.flag);
     l = strlen(url);
     url[l] = '/';
     ++l;
@@ -373,7 +388,7 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
                     "User-Agent: evhttp\r\n"
                     "Accept: */*\r\n"
                     "\r\n";
-    n = snprintf(res->buf, sizeof(res->buf), request, res->url, http_host);
+    n = snprintf(res->buf, sizeof(res->buf), request, res->url, config.http_host);
     if (n >= sizeof(res->buf))
     {
         http_destory(res);
@@ -393,7 +408,7 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 
 int http_new()
 {
-//    if (total_request == 0) return 0;
+    if (config.total <= 0) return 0;
 
     int fd =  http_connect();
     if (fd < 0){
@@ -407,58 +422,59 @@ int http_new()
     make_url(res->url, sizeof(res->url));
     res->fd = fd;
 
-    aeCreateFileEvent(el, fd, AE_WRITABLE, send_request, res);
+    aeCreateFileEvent(config.el, fd, AE_WRITABLE, send_request, res);
     return EV_OK;
 }
 
 void http_destory(struct response *res)
 {
-    aeDeleteFileEvent(el, res->fd, AE_READABLE);
-    aeDeleteFileEvent(el, res->fd, AE_WRITABLE);
+    aeDeleteFileEvent(config.el, res->fd, AE_READABLE);
+    aeDeleteFileEvent(config.el, res->fd, AE_WRITABLE);
     close(res->fd);
     free(res);
 
-    total_request -= 1;
+    config.total -= 1;
 
     http_new();
 }
 
-int main(int argc, char **argv)
+void config_init(int argc, char **argv)
 {
-    int ch;
+    config.remote_addr = "127.0.0.1";
+    config.remote_port = 80;
+    config.parallel    = 1;
+    config.total       = 1;
+    config.http_host   = "archlinux";
+    config.index       = 0;
+    config.flag        = "M";
+
+    char ch;
     while ((ch = getopt(argc, argv, "H:h:p:l:f:t:")) != -1) {
         switch (ch) {
-            case 'h':
-                strncpy(server_host, optarg, 15);
-                break;
-            case 'p':
-                server_port = atoi(optarg);
-                break;
-            case 'l':
-                parallel = atoi(optarg);
-                break;
-
-            case 'H':
-                http_host = optarg;
-                break;
-
-            case 'f':
-                flag = optarg;
-                break;
-
-            case 't':
-                total_request = atoi(optarg);
-                if (0 == total_request) total_request = -1;
-                break;
+            case 'h': config.remote_addr = optarg;       break;
+            case 'p': config.remote_port = atoi(optarg); break;
+            case 'l': config.parallel    = atoi(optarg); break;
+            case 'H': config.http_host   = optarg;       break;
+            case 'f': config.flag        = optarg;       break;
+            case 't': config.total       = atoi(optarg); break;
         }
     }
-    printf("Start: Host: %s:%d Parallel: %d\n", server_host, server_port, parallel);
 
-    el = aeCreateEventLoop(129);
-    while (parallel)
+    config.el = aeCreateEventLoop(config.parallel + 129);
+}
+
+int main(int argc, char **argv)
+{
+    config_init(argc, argv);
+    printf("Start: Host: %s:%d Parallel: %d\n",
+            config.remote_addr, config.remote_port, config.parallel);
+
+    int p = config.parallel;
+    while (p)
     {
         http_new();
-        parallel--;
+        p--;
     }
-    aeMain(el);
+
+    aeMain(config.el);
 }
