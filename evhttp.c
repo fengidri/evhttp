@@ -426,7 +426,7 @@ void http_destory(struct response *res)
 int main(int argc, char **argv)
 {
     int ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:t")) != -1) {
         switch (ch) {
             case 'h':
                 strncpy(server_host, optarg, 15);
@@ -444,6 +444,11 @@ int main(int argc, char **argv)
 
             case 'f':
                 flag = optarg;
+                break;
+
+            case 't':
+                total_request = atoi(optarg);
+                if (0 == total_request) total_request = -1;
                 break;
         }
     }
