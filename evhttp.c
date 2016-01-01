@@ -5,13 +5,8 @@
  *   version      :   1.0.1
  *   description  :
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <string.h>
 
-#include <stdbool.h>
+#include "evhttp.h"
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <error.h>
@@ -20,33 +15,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "ae.h"
+#include "url.h"
 
-//static char server_host[20] = "127.0.0.1";
-//static int server_port = 80;
-//static int parallel = 1;
-//static int total_request = 1;
-//static char *http_host = "archlinux";
-//static char *flag = "M";
-//static aeEventLoop *el;
-//static int Index;
 
-static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY";
-
-struct config{
-    const char *remote_addr;
-    char        remote_add_resolved[32];
-    int         remote_port;
-    int         parallel;
-    int         total;
-    const char  *http_host;
-    aeEventLoop *el;
-    int         index;
-    const char * flag;
-    struct hostent *hptr;
-};
-
-static struct config config;
+struct config config;
 
 struct response{
     char url[1024];
@@ -60,6 +32,7 @@ struct response{
     int content_recv;
     int chunk_length;
     int chunk_recv;
+    bool eof;
 };
 
 #define EV_OK 0
@@ -123,7 +96,7 @@ int http_connect()
     struct sockaddr_in remote_addr; //服务器端网络地址结构体
     memset(&remote_addr,0,sizeof(remote_addr)); //数据初始化--清零
     remote_addr.sin_family = AF_INET; //设置为IP通信
-    remote_addr.sin_addr.s_addr = inet_addr(config.remote_addr);//服务器IP地址
+    remote_addr.sin_addr.s_addr = inet_addr(config.remote_add_resolved);//服务器IP地址
     remote_addr.sin_port = htons(config.remote_port); //服务器端口号
 
     int ret = connect(s, (struct sockaddr*)&remote_addr, sizeof(struct sockaddr));
@@ -152,6 +125,9 @@ int process_header(struct response *res)
     length = pos - res->buf + 4;
     res->content_recv = res->buf_offset - length;
     res->status = atoi(res->buf + 9);
+
+    if (config.debug)
+        printf("%.*s", length, res->buf);
 
     int i = 0;
     while(i<length)
@@ -202,31 +178,6 @@ int net_recv(int fd, char *buf, size_t len)
     return n;
 }
 
-void make_url(char *url, size_t size)
-{
-    size_t l, c, len;
-    int index = config.index;
-    config.index += 1;
-
-    url[0] = '/';
-    url[1] = 0;
-    strcat(url, config.flag);
-    l = strlen(url);
-    url[l] = '/';
-    ++l;
-
-    len = strlen(letters);
-    while (index)
-    {
-        c = index % len;
-        url[l] = letters[c];
-        ++l;
-        index = index / len;
-    }
-
-    url[l] = 0;
-
-}
 
 int recv_header(int fd, struct response *res)
 {
@@ -257,29 +208,33 @@ int recv_header(int fd, struct response *res)
 int recv_no_chunked(int fd, struct response *res)
 {
     int n;
-    while (1)
+check:
+    if (res->content_length > -1)
     {
-        n = net_recv(fd, res->buf, sizeof(res->buf));
-        if (n < 0) return n;
-
-        res->content_recv += n;
-
-        if (res->content_length > -1)
+        if (res->content_recv >= res->content_length)
         {
-            if (res->content_recv >= res->content_length)
-            {
-                return EV_OK;
-            }
-            else{
-                if (0 == n)
-                    return EV_OK;
-            }
+            return EV_OK;
         }
         else{
-            if (0 == n)
+            if (res->eof)
+            {
+                logerr("Server close connection prematurely!!")
                 return EV_OK;
+            }
         }
     }
+    else{
+        if (res->eof)
+            return EV_OK;
+    }
+
+    n = net_recv(fd, res->buf, sizeof(res->buf));
+    if (n < 0) return n;
+    if (n == 0) res->eof = true;
+
+    res->content_recv += n;
+    goto check;
+
 }
 
 int recv_is_chunked(int fd, struct response *res)
@@ -316,24 +271,22 @@ int recv_is_chunked(int fd, struct response *res)
     }
 
 chunk:
-
-    while (1) // recv chunk
+    if (res->chunk_recv - res->chunk_length == 2)
     {
-        size = MIN(sizeof(res->buf), res->chunk_length + 2 - res->chunk_recv);
-        n = net_recv(fd, res->buf, size);
-        if (n < 0) return n;
-        if (n == 0) return EV_ERR;
-
-        res->content_recv += n;
-        res->chunk_recv += n;
-        if (res->chunk_recv - res->chunk_length == 2)
-        {
-            res->chunk_length = -1;
-            res->content_recv -= 2;
-            res->buf_offset = 0;
-            return recv_is_chunked(fd, res);
-        }
+        res->chunk_length = -1;
+        res->content_recv -= 2;
+        res->buf_offset = 0;
+        return recv_is_chunked(fd, res);
     }
+
+    size = MIN(sizeof(res->buf), res->chunk_length + 2 - res->chunk_recv);
+    n = net_recv(fd, res->buf, size);
+    if (n < 0) return n;
+    if (n == 0) res->eof = true;
+    res->content_recv += n;
+    res->chunk_recv += n;
+    goto chunk;
+
 }
 
 void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
@@ -372,7 +325,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_OK == ret)
     {
-        printf("Status: %d Recv-Length: %d URL: %s\n",
+        printf("Status: %d Recv: %d URL: %s\n",
                 res->status, res->content_recv, res->url);
     }
 
@@ -397,6 +350,8 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
         http_destory(res);
         return ;
     }
+    if (config.debug)
+        printf("%s", res->buf);
 
     n = send(fd, res->buf, n, 0);
     if (n < 0)
@@ -424,8 +379,11 @@ int http_new()
     res->read_header = true;
     make_url(res->url, sizeof(res->url));
     res->fd = fd;
+    res->eof = 0;
 
     aeCreateFileEvent(config.el, fd, AE_WRITABLE, send_request, res);
+
+    config.active += 1;
     return EV_OK;
 }
 
@@ -437,7 +395,12 @@ void http_destory(struct response *res)
     free(res);
 
     config.total -= 1;
-
+    config.active -= 1;
+    if (config.active <= 0 && config.total <= 0)
+    {
+        aeStop(config.el);
+        return;
+    }
     http_new();
 }
 
@@ -450,9 +413,11 @@ void config_init(int argc, char **argv)
     config.http_host   = NULL;
     config.index       = 0;
     config.flag        = "M";
+    config.debug       = false;
+    config.active      = 0;
 
     char ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:v")) != -1) {
         switch (ch) {
             case 'h': config.remote_addr = optarg;       break;
             case 'p': config.remote_port = atoi(optarg); break;
@@ -460,6 +425,7 @@ void config_init(int argc, char **argv)
             case 'H': config.http_host   = optarg;       break;
             case 'f': config.flag        = optarg;       break;
             case 't': config.total       = atoi(optarg); break;
+            case 'v': config.debug       = true; break;
         }
     }
 
@@ -480,10 +446,9 @@ int main(int argc, char **argv)
 {
     config_init(argc, argv);
     printf("Start: Host: %s:%d Parallel: %d\n",
-            config.remote_addr, config.remote_port, config.parallel);
+            config.remote_add_resolved, config.remote_port, config.parallel);
 
 
-    return;
     int p = config.parallel;
     while (p)
     {

@@ -1,2 +1,2 @@
 all:
-	gcc ae.c evhttp.c zmalloc.c -o evhttp -g
+	gcc ae.c zmalloc.c url.c evhttp.c -o evhttp -g
