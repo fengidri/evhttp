@@ -8,15 +8,12 @@
 
 #include "evhttp.h"
 #include <sys/socket.h>
-#include <fcntl.h>
 #include <error.h>
 #include <ctype.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 
 #include "url.h"
-
 
 struct config config;
 
@@ -35,48 +32,9 @@ struct response{
     bool eof;
 };
 
-#define EV_OK 0
-#define EV_ERR -2
-#define EV_AG  -3
 
-#define logerr(fmt, ...)
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 int http_new();
 void http_destory(struct response *);
-
-char* strnstr(char* s1, char* s2, size_t size)
-{
-    char c;
-    char *p;
-    c = s1[size -1];
-    s1[size - 1] = 0;
-    p = strstr(s1, s2);
-    s1[size - 1] = c;
-    return p;
-}
-
-int net_noblock(int fd, bool b)
-{
-    int flags;
-
-    /* Set the socket blocking (if non_block is zero) or non-blocking.
-     * Note that fcntl(2) for F_GETFL and F_SETFL can't be
-     * interrupted by a signal. */
-    if ((flags = fcntl(fd, F_GETFL)) == -1) {
-        return -1;
-    }
-
-    if (b)
-        flags |= O_NONBLOCK;
-    else
-        flags &= ~O_NONBLOCK;
-
-    if (fcntl(fd, F_SETFL, flags) == -1) {
-        return -1;
-    }
-    return 0;
-}
 
 int http_connect()
 {
@@ -158,25 +116,6 @@ int process_header(struct response *res)
     return EV_OK;
 }
 
-int net_recv(int fd, char *buf, size_t len)
-{
-    int n, err;
-
-    n = recv(fd, buf, len, 0);
-    err = errno; // save off errno, because because the printf statement might reset it
-    if (n < 0)
-    {
-        if ((err == EAGAIN) || (err == EWOULDBLOCK))
-        {
-            return EV_AG;
-        }
-        else
-        {
-            return EV_ERR;
-        }
-    }
-    return n;
-}
 
 
 int recv_header(int fd, struct response *res)
@@ -411,62 +350,3 @@ void http_destory(struct response *res)
     http_new();
 }
 
-void config_init(int argc, char **argv)
-{
-    config.remote_addr = "127.0.0.1";
-    config.remote_port = 80;
-    config.parallel    = 1;
-    config.total       = 1;
-    config.http_host   = NULL;
-    config.index       = 0;
-    config.flag        = "M";
-    config.debug       = false;
-    config.active      = 0;
-    config.total_limit = 1;
-    config.total       = 0;
-
-    char ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:v")) != -1) {
-        switch (ch) {
-            case 'h': config.remote_addr = optarg;       break;
-            case 'p': config.remote_port = atoi(optarg); break;
-            case 'l': config.parallel    = atoi(optarg); break;
-            case 'H': config.http_host   = optarg;       break;
-            case 'f': config.flag        = optarg;       break;
-            case 't': config.total_limit = atoi(optarg); break;
-            case 'v': config.debug       = true;         break;
-        }
-    }
-
-    config.hptr = gethostbyname(config.remote_addr);
-    if (NULL == config.hptr)
-    {
-        logerr("gethostbyname error: %s\n", config.remote_addr);
-    }
-    inet_ntop(config.hptr->h_addrtype, *config.hptr->h_addr_list,
-        config.remote_add_resolved, sizeof(config.remote_add_resolved));
-
-    if (NULL == config.http_host) config.http_host = config.remote_addr;
-
-    if (0 == config.total_limit) config.total_limit = -1;
-
-
-    config.el = aeCreateEventLoop(config.parallel + 129);
-}
-
-int main(int argc, char **argv)
-{
-    config_init(argc, argv);
-    printf("Start: Host: %s:%d Parallel: %d\n",
-            config.remote_add_resolved, config.remote_port, config.parallel);
-
-
-    int p = config.parallel;
-    while (p)
-    {
-        http_new();
-        p--;
-    }
-
-    aeMain(config.el);
-}

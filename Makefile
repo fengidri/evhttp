@@ -1,2 +1,3 @@
+src=ae.c zmalloc.c url.c lib.c evhttp.c main.c
 all:
-	gcc ae.c zmalloc.c url.c evhttp.c -o evhttp -g
+	gcc $(src) -o evhttp -g

@@ -16,6 +16,8 @@
 
 #include <stdbool.h>
 #include "ae.h"
+#include "lib.h"
+
 struct config{
     const char *remote_addr;
     char        remote_add_resolved[32];
@@ -32,6 +34,7 @@ struct config{
     int active;
 };
 
+int http_new();
 
 #endif
 
