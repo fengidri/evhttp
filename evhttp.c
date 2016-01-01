@@ -426,7 +426,7 @@ void http_destory(struct response *res)
 int main(int argc, char **argv)
 {
     int ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:")) != -1) {
         switch (ch) {
             case 'h':
                 strncpy(server_host, optarg, 15);
