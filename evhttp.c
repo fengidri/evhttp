@@ -306,11 +306,12 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 int http_new()
 {
     int fd =  http_connect();
+    struct response *res;
+
     if (fd < 0){
         return EV_ERR;
     }
 
-    struct response *res;
     res = malloc(sizeof(*res));
     res->buf_offset = 0;
     res->read_header = true;
