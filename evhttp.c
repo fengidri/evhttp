@@ -366,8 +366,6 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 
 int http_new()
 {
-    if (config.total <= 0) return 0;
-
     int fd =  http_connect();
     if (fd < 0){
         return EV_ERR;
@@ -394,13 +392,22 @@ void http_destory(struct response *res)
     close(res->fd);
     free(res);
 
-    config.total -= 1;
     config.active -= 1;
-    if (config.active <= 0 && config.total <= 0)
+    config.total += 1;
+
+    if (config.total_limit > 0)
     {
-        aeStop(config.el);
+        if (config.total >=  config.total_limit)
+        {
+            if (config.active <= 0)
+                aeStop(config.el);
+        }
+        else{
+            http_new();
+        }
         return;
     }
+
     http_new();
 }
 
@@ -415,6 +422,8 @@ void config_init(int argc, char **argv)
     config.flag        = "M";
     config.debug       = false;
     config.active      = 0;
+    config.total_limit = 1;
+    config.total       = 0;
 
     char ch;
     while ((ch = getopt(argc, argv, "H:h:p:l:f:t:v")) != -1) {
@@ -424,8 +433,8 @@ void config_init(int argc, char **argv)
             case 'l': config.parallel    = atoi(optarg); break;
             case 'H': config.http_host   = optarg;       break;
             case 'f': config.flag        = optarg;       break;
-            case 't': config.total       = atoi(optarg); break;
-            case 'v': config.debug       = true; break;
+            case 't': config.total_limit = atoi(optarg); break;
+            case 'v': config.debug       = true;         break;
         }
     }
 
@@ -438,6 +447,9 @@ void config_init(int argc, char **argv)
         config.remote_add_resolved, sizeof(config.remote_add_resolved));
 
     if (NULL == config.http_host) config.http_host = config.remote_addr;
+
+    if (0 == config.total_limit) config.total_limit = -1;
+
 
     config.el = aeCreateEventLoop(config.parallel + 129);
 }

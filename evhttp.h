@@ -22,6 +22,7 @@ struct config{
     int         remote_port;
     int         parallel;
     int         total;
+    int         total_limit;
     const char  *http_host;
     aeEventLoop *el;
     int         index;
