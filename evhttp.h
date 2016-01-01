@@ -32,6 +32,11 @@ struct config{
     struct hostent *hptr;
     bool        debug;
     int active;
+
+    bool        sum;
+    int         sum_timer_id;
+    long long        sum_recv;
+    long long        sum_recv_cur;
 };
 
 int http_new();

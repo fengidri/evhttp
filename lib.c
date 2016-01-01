@@ -68,3 +68,26 @@ int net_recv(int fd, char *buf, size_t len)
     }
     return n;
 }
+
+int size_fmt(char *buf, size_t len, int size)
+{
+    size_t p = 0;
+    char *ps = " KMGT";
+    float s;
+    int n;
+    s = size;
+    while(1)
+    {
+        if (s >= 1024)
+        {
+            s = s / 1024;
+            p += 1;
+            if (p >= strlen(ps) - 1) break;
+        }
+        else
+            break;
+    }
+    n = snprintf(buf, len - 1, "%.3f", s);
+    buf[n] = ps[p];
+    return n + 1;
+}

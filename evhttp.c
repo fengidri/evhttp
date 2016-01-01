@@ -36,6 +36,18 @@ struct response{
 int http_new();
 void http_destory(struct response *);
 
+static inline int ev_recv(int fd, char *buf, size_t len)
+{
+    int n;
+    n = net_recv(fd, buf, len);
+    if (n > 0)
+    {
+        config.sum_recv += n;
+        config.sum_recv_cur += n;
+    }
+    return n;
+}
+
 int http_connect()
 {
     int s;
@@ -123,7 +135,7 @@ int recv_header(int fd, struct response *res)
     int n;
     while (1)
     {
-        n = net_recv(fd, res->buf + res->buf_offset,
+        n = ev_recv(fd, res->buf + res->buf_offset,
                 sizeof(res->buf) - res->buf_offset);
 
         if (n < 0)  return n;
@@ -167,7 +179,7 @@ check:
             return EV_OK;
     }
 
-    n = net_recv(fd, res->buf, sizeof(res->buf));
+    n = ev_recv(fd, res->buf, sizeof(res->buf));
     if (n < 0) return n;
     if (n == 0) res->eof = true;
 
@@ -200,7 +212,7 @@ int recv_is_chunked(int fd, struct response *res)
             }
             if (res->buf_offset > 300) return EV_ERR;
 
-            n = net_recv(fd, res->buf + res->buf_offset,
+            n = ev_recv(fd, res->buf + res->buf_offset,
                     sizeof(res->buf) - res->buf_offset);
 
             if (n < 0) return n;
@@ -219,7 +231,7 @@ chunk:
     }
 
     size = MIN(sizeof(res->buf), res->chunk_length + 2 - res->chunk_recv);
-    n = net_recv(fd, res->buf, size);
+    n = ev_recv(fd, res->buf, size);
     if (n < 0) return n;
     if (n == 0) res->eof = true;
     res->content_recv += n;
@@ -259,10 +271,10 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     // END
     if (EV_ERR == ret)
     {
-        printf("Recv Response Error!!!\n");
+        logerr("Recv Response Error!!!\n");
     }
 
-    if (EV_OK == ret)
+    if (EV_OK == ret && !config.sum)// just output when not sum
     {
         printf("Status: %d Recv: %d URL: %s\n",
                 res->status, res->content_recv, res->url);
