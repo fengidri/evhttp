@@ -393,7 +393,7 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 
 int http_new()
 {
-    if (total_request == 0) return 0;
+//    if (total_request == 0) return 0;
 
     int fd =  http_connect();
     if (fd < 0){
