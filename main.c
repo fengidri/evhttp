@@ -41,11 +41,70 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     return 1000;
 }
 
+int arg_parser(int argc, char **argv)
+{
+    int i = 0;
+    char *arg;
+    char ch;
+    char *optarg;
+    for (i=1; i < argc; ++i)
+    {
+        arg = argv[i];
+        if ('-' != arg[0])
+        {
+            if (config.urls_n >= sizeof(config._urls))
+            {
+                logerr("Too many urls in command line.");
+                return EV_ERR;
+            }
+            config.urls[config.urls_n] = arg;
+            config.urls_n += 1;
+            continue;
+        }
+
+        ch = arg[1];
+        switch(ch)
+        {
+            case 'v': config.debug = true; continue;
+            case 's': config.sum   = true; continue;
+            case '\0':
+                      logerr("arg: - : error");
+                      return EV_ERR;
+        }
+
+        if (0 != arg[2]) optarg = arg + 2;
+        else{
+            if (i >= argc){
+                logerr("arg: %s need opt", arg);
+                return EV_ERR;
+            }
+            ++i;
+            optarg = argv[i];
+        }
+
+        switch (ch) {
+            case 'h':
+                ev_strncpy(config.remote.domain, optarg,
+                        sizeof(config.remote.domain));
+                break;
+            case 'i':
+                ev_strncpy(config.remote.ip,optarg, sizeof(config.remote.ip));
+                break;
+            case 'f': config.flag             = optarg;       break;
+            case 'p': config.remote.port      = atoi(optarg); break;
+            case 'l': config.parallel         = atoi(optarg); break;
+            case 't': config.total_limit      = atoi(optarg); break;
+            case 'r': config.recycle          = optarg;       break;
+        }
+    }
+}
+
 int config_init(int argc, char **argv)
 {
     strcpy(config.remote.domain, "127.0.0.1");
     config.remote.port      = 80;
 
+    config.urls = config._urls;
     config.parallel      = 1;
     config.total_limit   = 1;
     config.flag          = "M";
@@ -55,33 +114,7 @@ int config_init(int argc, char **argv)
     config.recycle       = NULL;
     config.recycle_times = 1;
 
-    char ch;
-    while ((ch = getopt(argc, argv, "h:i:p:l:f:t:vsr:")) != -1) {
-        switch (ch) {
-            case 'h':
-                ev_strncpy(config.remote.domain, optarg,
-                        sizeof(config.remote.domain));
-                break;
-            case 'i':
-                ev_strncpy(config.remote.ip,optarg, sizeof(config.remote.ip));
-                break;
-            case 'p': config.remote.port      = atoi(optarg); break;
-            case 'l': config.parallel         = atoi(optarg); break;
-            case 'f': config.flag             = optarg;       break;
-            case 't': config.total_limit      = atoi(optarg); break;
-            case 'v': config.debug            = true;         break;
-            case 's': config.sum              = true;         break;
-            case 'r': config.recycle          = optarg;       break;
-            default:
-                      if (config.urls_n >= sizeof(config._urls))
-                      {
-                          logerr("Too many urls in command line.")
-                              return EV_ERR;
-                      }
-                      config.urls[config.urls_n] = optarg;
-                      config.urls_n += 1;
-        }
-    }
+    if(!arg_parser(argc, argv)) return EV_ERR;
 
     if (0 == config.remote.ip[0] && 0 == config.urls_n)
     {
@@ -92,8 +125,6 @@ int config_init(int argc, char **argv)
             return EV_ERR;
         }
     }
-
-
 
     // total
     if (0 == config.total_limit){

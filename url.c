@@ -37,6 +37,7 @@ bool url_parser(struct url *u, const char *url)
             u->domain = url + 8;
             u->https = true;
         }
+        u->domain = url;
     }
 
     u->url = strstr(u->domain, "/");

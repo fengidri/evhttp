@@ -282,6 +282,7 @@ int http_new()
     h->buf_offset  = 0;
     h->eof         = 0;
     h->read_header = true;
+    h->remote = &h->_remote;
 
 url:
     if (!get_url(h))
