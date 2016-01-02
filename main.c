@@ -22,6 +22,7 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
     char recv[20];
     char speed[20];
+    char band[20];
     int n;
 
     n = size_fmt(recv, sizeof(recv) - 1, config.sum_recv);
@@ -30,9 +31,13 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     n = size_fmt(speed, sizeof(speed) - 1, config.sum_recv_cur);
     speed[n] = 0;
 
+    n = size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 8);
+    band[n] = 0;
+
     config.sum_recv_cur = 0;
-    printf("Total: %d OK: %lld Active: %d Recv: %s Speed: %s\n",
-            config.total, config.sum_status_200, config.active, recv, speed);
+    printf("Total: %d OK: %lld Active: %d Recv: %s Speed: %s Band: %s\n",
+            config.total, config.sum_status_200, config.active,
+            recv, speed, band);
 
     return 1000;
 }
