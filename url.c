@@ -13,7 +13,51 @@
 #include "evhttp.h"
 
 static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY";
-extern struct config config;
+
+struct url{
+    bool https;
+    const char *domain;
+    const char *url;
+    size_t domain_n;
+    size_t url_n;
+    int port;
+};
+
+bool url_parser(struct url *u, const char *url)
+{
+    char *p;
+    u->https = false;
+    if (':' == url[4])
+    {
+        u->domain = url + 7;
+    }
+    else{
+        if (':' == url[5])
+        {
+            u->domain = url + 8;
+            u->https = true;
+        }
+    }
+
+    u->url = strstr(u->domain, "/");
+    if (NULL == u->url)
+    {
+        u->domain_n = strlen(u->domain);
+    }
+    else{
+        u->domain_n = u->url - u->domain;
+    }
+
+    u->port = 0;
+    p = strstr(u->domain, ":");
+    if (p)
+    {
+        u->port = atoi(p + 1);
+        if (0 == u->port) return false;
+        u->domain_n = p - u->domain;
+    }
+    return true;
+}
 
 bool check_limit()
 {
@@ -44,30 +88,90 @@ bool check_limit()
     return false;
 }
 
-bool make_url(char *url, size_t size)
+void random_url(struct http *h)
 {
-    if (check_limit()) return false;
-
     size_t l, c, len;
     int index = config.index;
     config.index += 1;
 
-    url[0] = '/';
-    url[1] = 0;
-    strcat(url, config.flag);
-    l = strlen(url);
-    url[l] = '/';
+    h->url[0] = '/';
+    h->url[1] = 0;
+    strcat(h->url, config.flag);
+    l = strlen(h->url);
+    h->url[l] = '/';
     ++l;
 
     len = strlen(letters);
     while (index)
     {
         c = index % len;
-        url[l] = letters[c];
+        h->url[l] = letters[c];
         ++l;
         index = index / len;
     }
 
-    url[l] = 0;
+    h->url[l] = 0;
+    h->remote = &config.remote;
+}
+
+bool select_url(struct http *h)
+{
+    struct url u;
+    const char *url;
+
+    url = config.urls[0];
+    if (!url_parser(&u, url))
+    {
+        return false;
+    }
+    if (u.url)
+    {
+        ev_strncpy(h->url, u.url, sizeof(h->url));
+    }
+    else{
+        h->url[0] = '/';
+        h->url[1] = '\0';
+    }
+
+    if (u.domain_n >= sizeof(h->remote->domain))
+    {
+        logerr("%s: domain to long", url)
+        return false;
+    }
+
+    memcpy(h->remote->domain, u.domain, u.domain_n);
+    h->remote->domain[u.domain_n] = 0;
+
+    if (u.port)
+    {
+        h->remote->port = u.port;
+    }
+    else{
+        h->remote->port = config.remote.port;
+    }
+
+    if (config.remote.ip[0])
+    {
+        strcpy(h->remote->ip, config.remote.ip);
+    }
+    else{
+        if (!net_resolve(h->remote->domain, h->remote->ip,
+                    sizeof(h->remote->ip)))
+        {
+            return false;
+        }
+    }
     return true;
+}
+
+bool get_url(struct http *h)
+{
+    if (check_limit()) return false;
+
+    if (config.urls_n)
+        return select_url(h);
+    else
+        random_url(h);
+        return true;
+
 }
