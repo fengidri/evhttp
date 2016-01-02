@@ -46,20 +46,17 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
 
 int config_init(int argc, char **argv)
 {
-    config.remote_addr = "127.0.0.1";
-    config.remote_port = 80;
-    config.parallel    = 1;
-    config.total       = 1;
-    config.http_host   = NULL;
-    config.index       = 0;
-    config.flag        = "M";
-    config.debug       = false;
-    config.active      = 0;
-    config.total_limit = 1;
-    config.total       = 0;
-    config.sum         = false;
-    config.recycle     = NULL;
-    config.recycle_times  = 1;
+    config.remote_addr   = "127.0.0.1";
+    config.remote_port   = 80;
+    config.parallel      = 1;
+    config.total         = 1;
+    config.http_host     = NULL;
+    config.flag          = "M";
+    config.debug         = false;
+    config.total_limit   = 1;
+    config.sum           = false;
+    config.recycle       = NULL;
+    config.recycle_times = 1;
 
     char ch;
     while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr:")) != -1) {
@@ -76,6 +73,7 @@ int config_init(int argc, char **argv)
         }
     }
 
+    // resolve
     config.hptr = gethostbyname(config.remote_addr);
     if (NULL == config.hptr)
     {
@@ -86,14 +84,15 @@ int config_init(int argc, char **argv)
 
     if (NULL == config.http_host) config.http_host = config.remote_addr;
 
+    // total
     if (0 == config.total_limit){
         config.total_limit = -1;
     }
 
+    // recycle
     char flag = config.recycle[strlen(config.recycle) - 1];
     flag = tolower(flag);
     config.recycle_limit = atoi(config.recycle);
-    printf("%c\n", flag);
     switch(flag)
     {
         case 'n':

@@ -17,7 +17,7 @@
 
 struct config config;
 
-struct response{
+struct http{
     char url[1024];
     char buf[4 * 1024];
     int buf_offset;
@@ -34,7 +34,7 @@ struct response{
 
 
 int http_new();
-void http_destory(struct response *);
+void http_destory(struct http *);
 
 static inline int ev_recv(int fd, char *buf, size_t len)
 {
@@ -82,20 +82,20 @@ int http_connect()
     return s;
 }
 
-int process_header(struct response *res)
+int process_header(struct http *h)
 {
     char *pos;
     int length = 0;
 
-    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
+    pos = strnstr(h->buf, "\r\n\r\n", h->buf_offset);
     if (!pos)
         return EV_AG;
-    res->read_header = false;
+    h->read_header = false;
 
-    length = pos - res->buf + 4;
-    res->content_recv = res->buf_offset - length;
-    res->status = atoi(res->buf + 9);
-    if (200 == res->status)
+    length = pos - h->buf + 4;
+    h->content_recv = h->buf_offset - length;
+    h->status = atoi(h->buf + 9);
+    if (200 == h->status)
     {
         config.sum_status_200++;
     }
@@ -103,57 +103,57 @@ int process_header(struct response *res)
         config.sum_status_other++;
 
     if (config.debug)
-        printf("%.*s", length, res->buf);
+        printf("%.*s", length, h->buf);
 
     int i = 0;
     while(i<length)
     {
-        res->buf[i] = tolower(res->buf[i]);
+        h->buf[i] = tolower(h->buf[i]);
         i++;
     }
 
-    pos = strnstr(res->buf, "content-length:", length);
+    pos = strnstr(h->buf, "content-length:", length);
     if (pos)
     {
-        res->content_length = atoi(pos + 15);
-        res->chunked = false;
+        h->content_length = atoi(pos + 15);
+        h->chunked = false;
         return EV_OK;
     }
 
-    pos = strnstr(res->buf, "transfer-encoding:", length);
+    pos = strnstr(h->buf, "transfer-encoding:", length);
     if (pos)
     {
-        res->buf_offset = res->buf_offset - length;
-        memcpy(res->buf, res->buf + length, res->buf_offset);
-        res->chunk_length = -1;
-        res->chunked = true;
+        h->buf_offset = h->buf_offset - length;
+        memcpy(h->buf, h->buf + length, h->buf_offset);
+        h->chunk_length = -1;
+        h->chunked = true;
         return EV_OK;
     }
-    res->content_length = -1;
-    res->chunked = false;
+    h->content_length = -1;
+    h->chunked = false;
     return EV_OK;
 }
 
 
 
-int recv_header(int fd, struct response *res)
+int recv_header(int fd, struct http *h)
 {
     int n;
     while (1)
     {
-        n = ev_recv(fd, res->buf + res->buf_offset,
-                sizeof(res->buf) - res->buf_offset);
+        n = ev_recv(fd, h->buf + h->buf_offset,
+                sizeof(h->buf) - h->buf_offset);
 
         if (n < 0)  return n;
         if (n == 0) return EV_ERR;
 
-        res->buf_offset += n;
+        h->buf_offset += n;
 
-        if (EV_OK == process_header(res))
+        if (EV_OK == process_header(h))
         {
             return EV_OK;
         }
-        if (res->buf_offset >= sizeof(res->buf))
+        if (h->buf_offset >= sizeof(h->buf))
         {
             logerr("Header Too big!");
             return EV_ERR;
@@ -162,18 +162,18 @@ int recv_header(int fd, struct response *res)
     return EV_ERR;
 }
 
-int recv_no_chunked(int fd, struct response *res)
+int recv_no_chunked(int fd, struct http *h)
 {
     int n;
 check:
-    if (res->content_length > -1)
+    if (h->content_length > -1)
     {
-        if (res->content_recv >= res->content_length)
+        if (h->content_recv >= h->content_length)
         {
             return EV_OK;
         }
         else{
-            if (res->eof)
+            if (h->eof)
             {
                 logerr("Server close connection prematurely!!")
                 return EV_OK;
@@ -181,82 +181,82 @@ check:
         }
     }
     else{
-        if (res->eof)
+        if (h->eof)
             return EV_OK;
     }
 
-    n = ev_recv(fd, res->buf, sizeof(res->buf));
+    n = ev_recv(fd, h->buf, sizeof(h->buf));
     if (n < 0) return n;
-    if (n == 0) res->eof = true;
+    if (n == 0) h->eof = true;
 
-    res->content_recv += n;
+    h->content_recv += n;
     goto check;
 
 }
 
-int recv_is_chunked(int fd, struct response *res)
+int recv_is_chunked(int fd, struct http *h)
 {
     int n, size;
     char *pos;
 
-    if (res->chunk_length == -1)
+    if (h->chunk_length == -1)
     {
         while(1)
         {
-            if (res->buf_offset > 2)
+            if (h->buf_offset > 2)
             {
-                pos = strnstr(res->buf, "\r\n", res->buf_offset);
+                pos = strnstr(h->buf, "\r\n", h->buf_offset);
                 if (pos)
                 {
-                    res->chunk_length = strtol(res->buf, NULL, 16);
-                    if (0 == res->chunk_length) return EV_OK; // END
+                    h->chunk_length = strtol(h->buf, NULL, 16);
+                    if (0 == h->chunk_length) return EV_OK; // END
 
-                    res->content_recv += res->buf_offset - (pos - res->buf + 2);
-                    res->chunk_recv = res->buf_offset - (pos - res->buf + 2);
+                    h->content_recv += h->buf_offset - (pos - h->buf + 2);
+                    h->chunk_recv = h->buf_offset - (pos - h->buf + 2);
                     goto chunk;
                 }
             }
-            if (res->buf_offset > 300) return EV_ERR;
+            if (h->buf_offset > 300) return EV_ERR;
 
-            n = ev_recv(fd, res->buf + res->buf_offset,
-                    sizeof(res->buf) - res->buf_offset);
+            n = ev_recv(fd, h->buf + h->buf_offset,
+                    sizeof(h->buf) - h->buf_offset);
 
             if (n < 0) return n;
             if (0 == n) return EV_ERR;
-            res->buf_offset += n;
+            h->buf_offset += n;
         }
     }
 
 chunk:
-    if (res->chunk_recv - res->chunk_length == 2)
+    if (h->chunk_recv - h->chunk_length == 2)
     {
-        res->chunk_length = -1;
-        res->content_recv -= 2;
-        res->buf_offset = 0;
-        return recv_is_chunked(fd, res);
+        h->chunk_length = -1;
+        h->content_recv -= 2;
+        h->buf_offset = 0;
+        return recv_is_chunked(fd, h);
     }
 
-    size = MIN(sizeof(res->buf), res->chunk_length + 2 - res->chunk_recv);
-    n = ev_recv(fd, res->buf, size);
+    size = MIN(sizeof(h->buf), h->chunk_length + 2 - h->chunk_recv);
+    n = ev_recv(fd, h->buf, size);
     if (n < 0) return n;
-    if (n == 0) res->eof = true;
-    res->content_recv += n;
-    res->chunk_recv += n;
+    if (n == 0) h->eof = true;
+    h->content_recv += n;
+    h->chunk_recv += n;
     goto chunk;
 
 }
 
 void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 {
-    struct response *res;
-    int (*handle)(int , struct response *);
+    struct http *h;
+    int (*handle)(int , struct http *);
     int ret;
 
-    res = (struct response *)priv;
+    h = (struct http *)priv;
 
-    if (res->read_header)
+    if (h->read_header)
     {
-        ret = recv_header(fd, res);
+        ret = recv_header(fd, h);
         if (EV_OK == ret)
         {
             recv_response(el, fd, priv, mask);
@@ -264,12 +264,12 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
         }
     }
     else{
-        if (res->chunked)
+        if (h->chunked)
             handle = recv_is_chunked;
         else
             handle = recv_no_chunked;
 
-        ret = handle(fd, res);
+        ret = handle(fd, h);
     }
 
     if (EV_AG == ret) return;
@@ -283,17 +283,17 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     if (EV_OK == ret && !config.sum)// just output when not sum
     {
         printf("Status: %d Recv: %d URL: %s\n",
-                res->status, res->content_recv, res->url);
+                h->status, h->content_recv, h->url);
     }
 
-    http_destory(res);
+    http_destory(h);
 }
 
 
 void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 {
     int n;
-    struct response *res = priv;
+    struct http *h = priv;
 
     char *request = "GET %s HTTP/1.1\r\n"
                     "Host: %s\r\n"
@@ -301,54 +301,54 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
                     "User-Agent: evhttp\r\n"
                     "Accept: */*\r\n"
                     "\r\n";
-    n = snprintf(res->buf, sizeof(res->buf), request, res->url, config.http_host);
-    if (n >= sizeof(res->buf))
+    n = snprintf(h->buf, sizeof(h->buf), request, h->url, config.http_host);
+    if (n >= sizeof(h->buf))
     {
-        http_destory(res);
+        http_destory(h);
         return ;
     }
     if (config.debug)
-        printf("%s", res->buf);
+        printf("%s", h->buf);
 
-    n = send(fd, res->buf, n, 0);
+    n = send(fd, h->buf, n, 0);
     if (n < 0)
     {
-        http_destory(res);
+        http_destory(h);
         return ;
     }
 
     aeDeleteFileEvent(el, fd, AE_WRITABLE);
-    aeCreateFileEvent(el, fd, AE_READABLE, recv_response, res);
+    aeCreateFileEvent(el, fd, AE_READABLE, recv_response, h);
 }
 
 int http_new()
 {
     int fd =  http_connect();
-    struct response *res;
+    struct http *h;
 
     if (fd < 0){
         return EV_ERR;
     }
 
-    res = malloc(sizeof(*res));
-    res->buf_offset = 0;
-    res->read_header = true;
-    make_url(res->url, sizeof(res->url));
-    res->fd = fd;
-    res->eof = 0;
+    h = malloc(sizeof(*h));
+    h->buf_offset = 0;
+    h->read_header = true;
+    make_url(h->url, sizeof(h->url));
+    h->fd = fd;
+    h->eof = 0;
 
-    aeCreateFileEvent(config.el, fd, AE_WRITABLE, send_request, res);
+    aeCreateFileEvent(config.el, fd, AE_WRITABLE, send_request, h);
 
     config.active += 1;
     return EV_OK;
 }
 
-void http_destory(struct response *res)
+void http_destory(struct http *h)
 {
-    aeDeleteFileEvent(config.el, res->fd, AE_READABLE);
-    aeDeleteFileEvent(config.el, res->fd, AE_WRITABLE);
-    close(res->fd);
-    free(res);
+    aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
+    aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
+    close(h->fd);
+    free(h);
 
     config.active -= 1;
     config.total += 1;
