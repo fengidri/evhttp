@@ -18,9 +18,18 @@
 #define logerr(fmt, ...)
 
 char* strnstr(char* s1, char* s2, size_t size);
+int size_fmt(char *buf, size_t len, long long size);
+
 int net_noblock(int fd, bool b);
 int net_recv(int fd, char *buf, size_t len);
-int size_fmt(char *buf, size_t len, long long size);
+int net_connect(const char *addr, int port);
+bool net_resolve(const char *addr, char *buf, size_t size);
+
+static inline void ev_strncpy(char *dest, const char *src, size_t size)
+{
+    strncpy(dest, src, size);
+    dest[sizeof(size) - 1] = 0;
+}
 
 
 #endif

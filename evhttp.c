@@ -11,27 +11,10 @@
 #include <error.h>
 #include <ctype.h>
 #include <errno.h>
-#include <arpa/inet.h>
 
 #include "url.h"
 
 struct config config;
-
-struct http{
-    char url[1024];
-    char buf[4 * 1024];
-    int buf_offset;
-    bool read_header;
-    bool chunked;
-    int fd;
-    int status;
-    int content_length;
-    int content_recv;
-    int chunk_length;
-    int chunk_recv;
-    bool eof;
-};
-
 
 int http_new();
 void http_destory(struct http *);
@@ -48,39 +31,6 @@ static inline int ev_recv(int fd, char *buf, size_t len)
     return n;
 }
 
-int http_connect()
-{
-    int s;
-    s = socket(AF_INET,  SOCK_STREAM, 0);
-    if (s < 0)
-    {
-        perror("socket");
-        return -1;
-    }
-    if (net_noblock(s, true) < 0)
-    {
-        perror("noblock");
-        return -1;
-    }
-
-    struct sockaddr_in remote_addr; //服务器端网络地址结构体
-    memset(&remote_addr,0,sizeof(remote_addr)); //数据初始化--清零
-    remote_addr.sin_family = AF_INET; //设置为IP通信
-    remote_addr.sin_addr.s_addr = inet_addr(config.remote_add_resolved);//服务器IP地址
-    remote_addr.sin_port = htons(config.remote_port); //服务器端口号
-
-    int ret = connect(s, (struct sockaddr*)&remote_addr, sizeof(struct sockaddr));
-    while(ret < 0) {
-        if( errno == EINPROGRESS ) {
-            break;
-        }  else {
-            perror("connect fail'\n");
-            return -1;
-        }
-    }
-
-    return s;
-}
 
 int process_header(struct http *h)
 {
@@ -153,7 +103,7 @@ int recv_header(int fd, struct http *h)
         {
             return EV_OK;
         }
-        if (h->buf_offset >= sizeof(h->buf))
+        if (h->buf_offset >= (int)sizeof(h->buf))
         {
             logerr("Header Too big!");
             return EV_ERR;
@@ -236,7 +186,7 @@ chunk:
         return recv_is_chunked(fd, h);
     }
 
-    size = MIN(sizeof(h->buf), h->chunk_length + 2 - h->chunk_recv);
+    size = MIN((int)sizeof(h->buf), h->chunk_length + 2 - h->chunk_recv);
     n = ev_recv(fd, h->buf, size);
     if (n < 0) return n;
     if (n == 0) h->eof = true;
@@ -292,17 +242,20 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
 void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 {
+#define request_fmt "GET %s HTTP/1.1\r\n" \
+                    "Host: %s\r\n" \
+                    "Content-Length: 0\r\n" \
+                    "User-Agent: evhttp\r\n" \
+                    "Accept: */*\r\n" \
+                    "\r\n"
     int n;
     struct http *h = priv;
 
-    char *request = "GET %s HTTP/1.1\r\n"
-                    "Host: %s\r\n"
-                    "Content-Length: 0\r\n"
-                    "User-Agent: evhttp\r\n"
-                    "Accept: */*\r\n"
-                    "\r\n";
-    n = snprintf(h->buf, sizeof(h->buf), request, h->url, config.http_host);
-    if (n >= sizeof(h->buf))
+    n = snprintf(h->buf, sizeof(h->buf), request_fmt,
+            h->url,
+            h->remote->domain);
+
+    if (n >= (int)sizeof(h->buf))
     {
         http_destory(h);
         return ;
@@ -326,11 +279,12 @@ int http_new()
     struct http *h;
 
     h = malloc(sizeof(*h));
-    h->buf_offset = 0;
+    h->buf_offset  = 0;
+    h->eof         = 0;
     h->read_header = true;
-    h->eof = 0;
 
-    if (!make_url(h->url, sizeof(h->url)))
+url:
+    if (!get_url(h))
     {
         free(h);
         if (config.active <= 0)
@@ -340,12 +294,9 @@ int http_new()
         return EV_OK;
     }
 
-    h->fd = http_connect();
+    h->fd = net_connect(h->remote->ip, h->remote->port);
 
-    if (h->fd < 0){
-        free(h);
-        return EV_ERR;
-    }
+    if (h->fd < 0) goto url;
 
     aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request, h);
     config.active += 1;
@@ -365,4 +316,3 @@ void http_destory(struct http *h)
 
     http_new();
 }
-

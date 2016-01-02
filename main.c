@@ -13,12 +13,9 @@
 #include <ctype.h>
 
 #include "evhttp.h"
-#include <netdb.h>
 #include <arpa/inet.h>
 
 #include "lib.h"
-
-extern struct config config;
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
@@ -46,11 +43,11 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
 
 int config_init(int argc, char **argv)
 {
-    config.remote_addr   = "127.0.0.1";
-    config.remote_port   = 80;
+    strcpy(config.remote.domain, "127.0.0.1");
+    config.remote.port      = 80;
+
     config.parallel      = 1;
     config.total_limit   = 1;
-    config.http_host     = NULL;
     config.flag          = "M";
     config.debug         = false;
     config.total_limit   = 1;
@@ -59,30 +56,44 @@ int config_init(int argc, char **argv)
     config.recycle_times = 1;
 
     char ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr:")) != -1) {
+    while ((ch = getopt(argc, argv, "h:i:p:l:f:t:vsr:")) != -1) {
         switch (ch) {
-            case 'h': config.remote_addr = optarg;       break;
-            case 'p': config.remote_port = atoi(optarg); break;
-            case 'l': config.parallel    = atoi(optarg); break;
-            case 'H': config.http_host   = optarg;       break;
-            case 'f': config.flag        = optarg;       break;
-            case 't': config.total_limit = atoi(optarg); break;
-            case 'v': config.debug       = true;         break;
-            case 's': config.sum         = true;         break;
-            case 'r': config.recycle     = optarg;       break;
+            case 'h':
+                ev_strncpy(config.remote.domain, optarg,
+                        sizeof(config.remote.domain));
+                break;
+            case 'i':
+                ev_strncpy(config.remote.ip,optarg, sizeof(config.remote.ip));
+                break;
+            case 'p': config.remote.port      = atoi(optarg); break;
+            case 'l': config.parallel         = atoi(optarg); break;
+            case 'f': config.flag             = optarg;       break;
+            case 't': config.total_limit      = atoi(optarg); break;
+            case 'v': config.debug            = true;         break;
+            case 's': config.sum              = true;         break;
+            case 'r': config.recycle          = optarg;       break;
+            default:
+                      if (config.urls_n >= sizeof(config._urls))
+                      {
+                          logerr("Too many urls in command line.")
+                              return EV_ERR;
+                      }
+                      config.urls[config.urls_n] = optarg;
+                      config.urls_n += 1;
         }
     }
 
-    // resolve
-    config.hptr = gethostbyname(config.remote_addr);
-    if (NULL == config.hptr)
+    if (0 == config.remote.ip[0] && 0 == config.urls_n)
     {
-        logerr("gethostbyname error: %s\n", config.remote_addr);
+        if (!net_resolve(config.remote.domain, config.remote.ip,
+                    sizeof(config.remote.ip)))
+        {
+            logerr("Cannot resolve the add: %s\n", config.remote.domain);
+            return EV_ERR;
+        }
     }
-    inet_ntop(config.hptr->h_addrtype, *config.hptr->h_addr_list,
-        config.remote_add_resolved, sizeof(config.remote_add_resolved));
 
-    if (NULL == config.http_host) config.http_host = config.remote_addr;
+
 
     // total
     if (0 == config.total_limit){
@@ -127,9 +138,9 @@ int config_init(int argc, char **argv)
 int main(int argc, char **argv)
 {
     if (EV_OK != config_init(argc, argv)) return -1;
-    printf("Start: Host: %s:%d Parallel: %d\n",
-            config.remote_add_resolved, config.remote_port, config.parallel);
-
+    printf("Start: Host: %s(%s):%d Parallel: %d\n",
+            config.remote.domain,
+            config.remote.ip, config.remote.port, config.parallel);
 
     int p = config.parallel;
     while (p)

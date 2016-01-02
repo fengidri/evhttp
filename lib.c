@@ -13,6 +13,8 @@
 #include <sys/socket.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include "lib.h"
 
@@ -47,6 +49,57 @@ int net_noblock(int fd, bool b)
         return -1;
     }
     return 0;
+}
+
+bool net_resolve(const char *addr, char *buf, size_t size)
+{
+    // resolve
+    struct hostent *hptr;
+    hptr = gethostbyname(addr);
+
+    if (NULL == hptr)
+    {
+        logerr("gethostbyname error: %s\n", addr);
+        return false;
+    }
+
+    inet_ntop(hptr->h_addrtype, *hptr->h_addr_list, buf, size);
+    return true;
+}
+
+int net_connect(const char *addr, int port)
+{
+    int s;
+    s = socket(AF_INET,  SOCK_STREAM, 0);
+    if (s < 0)
+    {
+        perror("socket");
+        return -1;
+    }
+
+    if (net_noblock(s, true) < 0)
+    {
+        perror("noblock");
+        return -1;
+    }
+
+    struct sockaddr_in remote_addr; //服务器端网络地址结构体
+    memset(&remote_addr,0,sizeof(remote_addr)); //数据初始化--清零
+    remote_addr.sin_family = AF_INET; //设置为IP通信
+    remote_addr.sin_addr.s_addr = inet_addr(addr);//服务器IP地址
+    remote_addr.sin_port = htons(port); //服务器端口号
+
+    int ret = connect(s, (struct sockaddr*)&remote_addr, sizeof(struct sockaddr));
+    while(ret < 0) {
+        if( errno == EINPROGRESS ) {
+            break;
+        }  else {
+            perror("connect fail");
+            return -1;
+        }
+    }
+
+    return s;
 }
 
 int net_recv(int fd, char *buf, size_t len)

@@ -8,7 +8,8 @@
 #ifndef  __URL_H__
 #define __URL_H__
 #include <stdbool.h>
-bool make_url(char *url, size_t size);
+#include "evhttp.h"
+bool get_url(struct http *h);
 
 #endif
 
