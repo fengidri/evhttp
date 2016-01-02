@@ -62,7 +62,7 @@ int config_init(int argc, char **argv)
     config.recycle_times  = 1;
 
     char ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr:")) != -1) {
         switch (ch) {
             case 'h': config.remote_addr = optarg;       break;
             case 'p': config.remote_port = atoi(optarg); break;
