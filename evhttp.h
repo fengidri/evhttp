@@ -18,6 +18,9 @@
 #include "ae.h"
 #include "lib.h"
 
+#define RECYCLE_TIMES 1
+#define RECYCLE_BYTES 2
+
 struct config{
     aeEventLoop *el;
 
@@ -32,7 +35,12 @@ struct config{
     int         total;
     int         total_limit;
     int         active;
-    int        recycle;
+
+    const char *recycle;
+    int         recycle_times;
+    int         recycle_type;
+    long long   recycle_limit;
+
 
     const char  *http_host;
 

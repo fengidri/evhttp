@@ -357,14 +357,6 @@ void http_destory(struct response *res)
     {
         if (config.total >=  config.total_limit)
         {
-            if (config.recycle >= 0)
-            {
-                config.total   =  0;
-                config.recycle += 1;
-                config.index   =  0;
-                http_new();
-                return;
-            }
             if (config.active <= 0)
             {
                 aeStop(config.el);
@@ -374,6 +366,23 @@ void http_destory(struct response *res)
             http_new();
         }
         return;
+    }
+
+    if (config.recycle)
+    {
+        long long target;
+        target = 0;
+        if (RECYCLE_TIMES == config.recycle_type)
+            target = config.total;
+
+        if (RECYCLE_BYTES == config.recycle_type)
+            target = config.sum_recv;
+
+        if (target > config.recycle_limit * config.recycle_times)
+        {
+            config.index         =  0;
+            config.recycle_times += 1;
+        }
     }
 
     http_new();

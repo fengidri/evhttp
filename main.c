@@ -6,9 +6,11 @@
  *   description  :
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "evhttp.h"
 #include <netdb.h>
@@ -56,7 +58,8 @@ int config_init(int argc, char **argv)
     config.total_limit = 1;
     config.total       = 0;
     config.sum         = false;
-    config.recycle     = -1;
+    config.recycle     = NULL;
+    config.recycle_times  = 1;
 
     char ch;
     while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr")) != -1) {
@@ -69,7 +72,7 @@ int config_init(int argc, char **argv)
             case 't': config.total_limit = atoi(optarg); break;
             case 'v': config.debug       = true;         break;
             case 's': config.sum       = true;         break;
-            case 'r': config.recycle       = 0;         break;
+            case 'r': config.recycle       = optarg;         break;
         }
     }
 
@@ -85,13 +88,33 @@ int config_init(int argc, char **argv)
 
     if (0 == config.total_limit){
         config.total_limit = -1;
-        if (config.recycle >= 0)
-        {
-            logerr("when total nolimit, can not set recycle!");
-            return EV_ERR;
-        }
     }
 
+    char flag = config.recycle[strlen(config.recycle) - 1];
+    flag = tolower(flag);
+    config.recycle_limit = atoi(config.recycle);
+    switch(flag)
+    {
+        case 'n':
+            config.recycle_type = RECYCLE_TIMES;
+            break;
+
+        case 't': config.recycle_limit *= 1024;
+        case 'g': config.recycle_limit *= 1024;
+        case 'm': config.recycle_limit *= 1024;
+        case 'k': config.recycle_limit *= 1024;
+        case 'b':
+            config.recycle_type = RECYCLE_BYTES;
+        default:
+            logerr("%s connot unrecognized");
+            return EV_ERR;
+    }
+
+    if (config.recycle >= 0)
+    {
+        logerr("when total nolimit, can not set recycle!");
+        return EV_ERR;
+    }
 
     config.el = aeCreateEventLoop(config.parallel + 129);
 
