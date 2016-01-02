@@ -7,7 +7,8 @@
  */
 #ifndef  __URL_H__
 #define __URL_H__
-void make_url(char *url, size_t size);
+#include <stdbool.h>
+bool make_url(char *url, size_t size);
 
 #endif
 

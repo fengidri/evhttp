@@ -15,8 +15,39 @@
 static char *letters = "/1234567890asbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY";
 extern struct config config;
 
-void make_url(char *url, size_t size)
+bool check_limit()
 {
+    if (config.total_limit > 0)
+    {
+        if (config.total >=  config.total_limit)
+        {
+            return true;
+        }
+    }
+
+    if (config.recycle)
+    {
+        long long target;
+        target = 0;
+        if (RECYCLE_TIMES == config.recycle_type)
+            target = config.total;
+
+        if (RECYCLE_BYTES == config.recycle_type)
+            target = config.sum_recv;
+
+        if (target > config.recycle_limit * config.recycle_times)
+        {
+            config.index         =  0;
+            config.recycle_times += 1;
+        }
+    }
+    return false;
+}
+
+bool make_url(char *url, size_t size)
+{
+    if (check_limit()) return false;
+
     size_t l, c, len;
     int index = config.index;
     config.index += 1;
@@ -38,4 +69,5 @@ void make_url(char *url, size_t size)
     }
 
     url[l] = 0;
+    return true;
 }

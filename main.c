@@ -49,7 +49,7 @@ int config_init(int argc, char **argv)
     config.remote_addr   = "127.0.0.1";
     config.remote_port   = 80;
     config.parallel      = 1;
-    config.total         = 1;
+    config.total_limit   = 1;
     config.http_host     = NULL;
     config.flag          = "M";
     config.debug         = false;
@@ -90,25 +90,28 @@ int config_init(int argc, char **argv)
     }
 
     // recycle
-    char flag = config.recycle[strlen(config.recycle) - 1];
-    flag = tolower(flag);
-    config.recycle_limit = atoi(config.recycle);
-    switch(flag)
+    if (config.recycle)
     {
-        case 'n':
-            config.recycle_type = RECYCLE_TIMES;
-            break;
+        char flag = config.recycle[strlen(config.recycle) - 1];
+        flag = tolower(flag);
+        config.recycle_limit = atoi(config.recycle);
+        switch(flag)
+        {
+            case 'n':
+                config.recycle_type = RECYCLE_TIMES;
+                break;
 
-        case 't': config.recycle_limit *= 1024;
-        case 'g': config.recycle_limit *= 1024;
-        case 'm': config.recycle_limit *= 1024;
-        case 'k': config.recycle_limit *= 1024;
-        case 'b':
-            config.recycle_type = RECYCLE_BYTES;
-            break;
-        default:
-            logerr("%s connot unrecognized");
-            return EV_ERR;
+            case 't': config.recycle_limit *= 1024;
+            case 'g': config.recycle_limit *= 1024;
+            case 'm': config.recycle_limit *= 1024;
+            case 'k': config.recycle_limit *= 1024;
+            case 'b':
+                      config.recycle_type = RECYCLE_BYTES;
+                      break;
+            default:
+                      logerr("%s connot unrecognized");
+                      return EV_ERR;
+        }
     }
 
     config.el = aeCreateEventLoop(config.parallel + 129);

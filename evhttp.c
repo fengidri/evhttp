@@ -323,23 +323,33 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 
 int http_new()
 {
-    int fd =  http_connect();
     struct http *h;
-
-    if (fd < 0){
-        return EV_ERR;
-    }
 
     h = malloc(sizeof(*h));
     h->buf_offset = 0;
     h->read_header = true;
-    make_url(h->url, sizeof(h->url));
-    h->fd = fd;
     h->eof = 0;
 
-    aeCreateFileEvent(config.el, fd, AE_WRITABLE, send_request, h);
+    if (!make_url(h->url, sizeof(h->url)))
+    {
+        free(h);
+        if (config.active <= 0)
+        {
+            aeStop(config.el);
+        }
+        return EV_OK;
+    }
 
+    h->fd = http_connect();
+
+    if (h->fd < 0){
+        free(h);
+        return EV_ERR;
+    }
+
+    aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request, h);
     config.active += 1;
+
     return EV_OK;
 }
 
@@ -352,38 +362,6 @@ void http_destory(struct http *h)
 
     config.active -= 1;
     config.total += 1;
-
-    if (config.total_limit > 0)
-    {
-        if (config.total >=  config.total_limit)
-        {
-            if (config.active <= 0)
-            {
-                aeStop(config.el);
-            }
-        }
-        else{
-            http_new();
-        }
-        return;
-    }
-
-    if (config.recycle)
-    {
-        long long target;
-        target = 0;
-        if (RECYCLE_TIMES == config.recycle_type)
-            target = config.total;
-
-        if (RECYCLE_BYTES == config.recycle_type)
-            target = config.sum_recv;
-
-        if (target > config.recycle_limit * config.recycle_times)
-        {
-            config.index         =  0;
-            config.recycle_times += 1;
-        }
-    }
 
     http_new();
 }
