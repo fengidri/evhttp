@@ -14,10 +14,20 @@
 
 #include "url.h"
 
-struct config config;
-
 int http_new();
 void http_destory(struct http *);
+
+struct config config = {
+    .remote.port   = 80,
+    .parallel      = 1,
+    .total_limit   = 1,
+    .flag          = "M",
+    .debug         = false,
+    .sum           = false,
+    .recycle       = NULL,
+    .recycle_times = 1,
+    .urls          = config._urls,
+};
 
 static inline int ev_recv(int fd, char *buf, size_t len)
 {
@@ -52,8 +62,7 @@ int process_header(struct http *h)
     else
         config.sum_status_other++;
 
-    if (config.debug)
-        printf("%.*s", length, h->buf);
+    logdebug("%.*s", length, h->buf);
 
     int i = 0;
     while(i<length)
@@ -91,8 +100,7 @@ int recv_header(int fd, struct http *h)
     int n;
     while (1)
     {
-        n = ev_recv(fd, h->buf + h->buf_offset,
-                sizeof(h->buf) - h->buf_offset);
+        n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
 
         if (n < 0)  return n;
         if (n == 0) return EV_ERR;
@@ -230,9 +238,9 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
         logerr("Recv Response Error!!!\n");
     }
 
-    if (EV_OK == ret && !config.sum)// just output when not sum
+    if (EV_OK == ret)// just output when not sum
     {
-        printf("Status: %d Recv: %d URL: %s\n",
+        logdebug("Status: %d Recv: %d URL: %s\n",
                 h->status, h->content_recv, h->url);
     }
 
@@ -260,8 +268,9 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
         http_destory(h);
         return ;
     }
-    if (config.debug)
-        printf("%s", h->buf);
+
+    logdebug("===========================================\n");
+    logdebug("%s", h->buf);
 
     n = send(fd, h->buf, n, 0);
     if (n < 0)
@@ -282,7 +291,7 @@ int http_new()
     h->buf_offset  = 0;
     h->eof         = 0;
     h->read_header = true;
-    h->remote = &h->_remote;
+    h->remote      = &h->_remote;
 
 url:
     if (!get_url(h))
@@ -295,9 +304,13 @@ url:
         return EV_OK;
     }
 
+    logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
     h->fd = net_connect(h->remote->ip, h->remote->port);
 
-    if (h->fd < 0) goto url;
+    if (h->fd < 0){
+        usleep(100000);
+        goto url;
+    }
 
     aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request, h);
     config.active += 1;

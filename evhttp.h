@@ -27,10 +27,19 @@ struct remote{
     char ip[32];
 };
 
+//enum mode{
+//    MODE_NORMAL; // request url one by one
+//    MODE_REPEAT; // repeat request url one by one
+//    MODE_RANDOM; // request random  url
+//    MODE_RANDOM_RECYCLE_TIMES;     // repeat request random url
+//    MODE_RANDOM_RECYCLE_BYTES;     // repeat request random url
+//};
+
 // global config
 struct config{
     aeEventLoop *el;
     struct remote remote;
+
 
     int         parallel;
     bool        debug;
@@ -48,7 +57,7 @@ struct config{
     int         recycle_type;
     long long   recycle_limit;
 
-    int         index;
+    size_t      index; // for url
     const char *flag;
 
     bool               sum;
@@ -81,10 +90,19 @@ struct http{
 
     int content_length;
     int content_recv;
+
+    time_t time_start;
+    float time_dns;
+    float time_connect;
+    float time_recv;
+    float time_max_read;
+    float time_total;
 };
 
 int http_new();
 extern struct config config;
+
+#define logdebug(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__)
 
 #endif
 

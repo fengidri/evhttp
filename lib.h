@@ -28,7 +28,7 @@ bool net_resolve(const char *addr, char *buf, size_t size);
 static inline void ev_strncpy(char *dest, const char *src, size_t size)
 {
     strncpy(dest, src, size);
-    dest[sizeof(size) - 1] = 0;
+    dest[size - 1] = 0;
 }
 
 

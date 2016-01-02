@@ -45,9 +45,8 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
 int arg_parser(int argc, char **argv)
 {
     int i = 0;
-    char *arg;
-    char ch;
-    char *optarg;
+    char *arg, ch, *optarg;
+
     for (i=1; i < argc; ++i)
     {
         arg = argv[i];
@@ -84,11 +83,11 @@ int arg_parser(int argc, char **argv)
         }
 
         switch (ch) {
-            case 'h':
+            case 'd':
                 ev_strncpy(config.remote.domain, optarg,
                         sizeof(config.remote.domain));
                 break;
-            case 'i':
+            case 'h':
                 ev_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
                 break;
             case 'f': config.flag             = optarg;       break;
@@ -103,20 +102,22 @@ int arg_parser(int argc, char **argv)
 
 int config_init(int argc, char **argv)
 {
-    strcpy(config.remote.domain, "127.0.0.1");
-    config.remote.port      = 80;
-
-    config.urls = config._urls;
-    config.parallel      = 1;
-    config.total_limit   = 1;
-    config.flag          = "M";
-    config.debug         = false;
-    config.total_limit   = 1;
-    config.sum           = false;
-    config.recycle       = NULL;
-    config.recycle_times = 1;
-
     if(EV_OK != arg_parser(argc, argv)) return EV_ERR;
+
+    if (!config.urls_n) // use random url
+    {
+        if (!config.remote.domain[0] && !config.remote.ip[0])
+        {
+            logerr("Please set domain(-d) or ip(-i) for random url!!\n");
+            return EV_ERR;
+        }
+        if (!net_resolve(config.remote.domain, config.remote.ip,
+                    sizeof(config.remote.ip)))
+        {
+            logerr("Cannot resolve the add: %s\n", config.remote.domain);
+            return EV_ERR;
+        }
+    }
 
     if (0 == config.remote.ip[0] && 0 == config.urls_n)
     {
@@ -129,9 +130,7 @@ int config_init(int argc, char **argv)
     }
 
     // total
-    if (0 == config.total_limit){
-        config.total_limit = -1;
-    }
+    if (0 == config.total_limit) config.total_limit = -1;
 
     // recycle
     if (config.recycle)
@@ -171,13 +170,11 @@ int config_init(int argc, char **argv)
 int main(int argc, char **argv)
 {
     debug();
+
     if (EV_OK != config_init(argc, argv)) return -1;
 
-    if (config.urls_n)
+    if (!config.urls_n)
     {
-        printf("Use the url from command line\n");
-    }
-    else{
         printf("Use Random URL. Domain: %s/%s:%d Parallel: %d\n",
             config.remote.domain,
             config.remote.ip, config.remote.port, config.parallel);

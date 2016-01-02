@@ -60,7 +60,7 @@ bool url_parser(struct url *u, const char *url)
     return true;
 }
 
-bool check_limit()
+static bool check_limit()
 {
     if (config.total_limit > 0)
     {
@@ -120,18 +120,15 @@ bool select_url(struct http *h)
     struct url u;
     const char *url;
 
-    if (config.index >= config.urls_n) return false;
+    if (config.index >= config.urls_n) config.index = 0;
 
     url = config.urls[config.index];
     config.index++;
-    if (!url_parser(&u, url))
-    {
-        return false;
-    }
+
+    if (!url_parser(&u, url)) return false;
+
     if (u.url)
-    {
         ev_strncpy(h->url, u.url, sizeof(h->url));
-    }
     else{
         h->url[0] = '/';
         h->url[1] = '\0';
@@ -154,16 +151,11 @@ bool select_url(struct http *h)
         h->remote->port = config.remote.port;
     }
 
-    if (config.remote.ip[0])
-    {
-        strcpy(h->remote->ip, config.remote.ip);
-    }
+    if (config.remote.ip[0]) strcpy(h->remote->ip, config.remote.ip);
     else{
         if (!net_resolve(h->remote->domain, h->remote->ip,
                     sizeof(h->remote->ip)))
-        {
             return false;
-        }
     }
     return true;
 }
