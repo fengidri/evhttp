@@ -95,6 +95,12 @@ int process_header(struct response *res)
     length = pos - res->buf + 4;
     res->content_recv = res->buf_offset - length;
     res->status = atoi(res->buf + 9);
+    if (200 == res->status)
+    {
+        config.sum_status_200++;
+    }
+    else
+        config.sum_status_other++;
 
     if (config.debug)
         printf("%.*s", length, res->buf);

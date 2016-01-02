@@ -33,10 +33,12 @@ struct config{
     bool        debug;
     int active;
 
-    bool        sum;
-    int         sum_timer_id;
-    long long        sum_recv;
-    long long        sum_recv_cur;
+    bool               sum;
+    int                sum_timer_id;
+    long long          sum_recv;
+    long long          sum_recv_cur;
+    long long          sum_status_200;
+    long long          sum_status_other;
 };
 
 int http_new();
