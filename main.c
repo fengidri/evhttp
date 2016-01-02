@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 
 #include "lib.h"
+#include "debug.h"
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
@@ -68,17 +69,17 @@ int arg_parser(int argc, char **argv)
             case 'v': config.debug = true; continue;
             case 's': config.sum   = true; continue;
             case '\0':
-                      logerr("arg: - : error");
+                      logerr("arg: - : error\n");
                       return EV_ERR;
         }
 
         if (0 != arg[2]) optarg = arg + 2;
         else{
+            ++i;
             if (i >= argc){
-                logerr("arg: %s need opt", arg);
+                logerr("arg: %s need opt\n", arg);
                 return EV_ERR;
             }
-            ++i;
             optarg = argv[i];
         }
 
@@ -88,7 +89,7 @@ int arg_parser(int argc, char **argv)
                         sizeof(config.remote.domain));
                 break;
             case 'i':
-                ev_strncpy(config.remote.ip,optarg, sizeof(config.remote.ip));
+                ev_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
                 break;
             case 'f': config.flag             = optarg;       break;
             case 'p': config.remote.port      = atoi(optarg); break;
@@ -97,6 +98,7 @@ int arg_parser(int argc, char **argv)
             case 'r': config.recycle          = optarg;       break;
         }
     }
+    return EV_OK;
 }
 
 int config_init(int argc, char **argv)
@@ -114,7 +116,7 @@ int config_init(int argc, char **argv)
     config.recycle       = NULL;
     config.recycle_times = 1;
 
-    if(!arg_parser(argc, argv)) return EV_ERR;
+    if(EV_OK != arg_parser(argc, argv)) return EV_ERR;
 
     if (0 == config.remote.ip[0] && 0 == config.urls_n)
     {
@@ -151,7 +153,7 @@ int config_init(int argc, char **argv)
                       config.recycle_type = RECYCLE_BYTES;
                       break;
             default:
-                      logerr("%s connot unrecognized");
+                      logerr("%s connot unrecognized", config.recycle);
                       return EV_ERR;
         }
     }
@@ -168,10 +170,18 @@ int config_init(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+    debug();
     if (EV_OK != config_init(argc, argv)) return -1;
-    printf("Start: Host: %s(%s):%d Parallel: %d\n",
+
+    if (config.urls_n)
+    {
+        printf("Use the url from command line\n");
+    }
+    else{
+        printf("Use Random URL. Domain: %s/%s:%d Parallel: %d\n",
             config.remote.domain,
             config.remote.ip, config.remote.port, config.parallel);
+    }
 
     int p = config.parallel;
     while (p)

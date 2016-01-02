@@ -120,7 +120,10 @@ bool select_url(struct http *h)
     struct url u;
     const char *url;
 
-    url = config.urls[0];
+    if (config.index >= config.urls_n) return false;
+
+    url = config.urls[config.index];
+    config.index++;
     if (!url_parser(&u, url))
     {
         return false;
@@ -136,7 +139,7 @@ bool select_url(struct http *h)
 
     if (u.domain_n >= sizeof(h->remote->domain))
     {
-        logerr("%s: domain to long", url)
+        logerr("%s: domain to long", url);
         return false;
     }
 

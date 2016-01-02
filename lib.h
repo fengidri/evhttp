@@ -15,7 +15,7 @@
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#define logerr(fmt, ...)
+#define logerr(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 char* strnstr(char* s1, char* s2, size_t size);
 int size_fmt(char *buf, size_t len, long long size);

@@ -125,7 +125,7 @@ check:
         else{
             if (h->eof)
             {
-                logerr("Server close connection prematurely!!")
+                logerr("Server close connection prematurely!!");
                 return EV_OK;
             }
         }
