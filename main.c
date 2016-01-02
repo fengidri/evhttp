@@ -71,8 +71,8 @@ int config_init(int argc, char **argv)
             case 'f': config.flag        = optarg;       break;
             case 't': config.total_limit = atoi(optarg); break;
             case 'v': config.debug       = true;         break;
-            case 's': config.sum       = true;         break;
-            case 'r': config.recycle       = optarg;         break;
+            case 's': config.sum         = true;         break;
+            case 'r': config.recycle     = optarg;       break;
         }
     }
 
@@ -105,6 +105,7 @@ int config_init(int argc, char **argv)
         case 'k': config.recycle_limit *= 1024;
         case 'b':
             config.recycle_type = RECYCLE_BYTES;
+            break;
         default:
             logerr("%s connot unrecognized");
             return EV_ERR;
