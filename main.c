@@ -93,6 +93,7 @@ int config_init(int argc, char **argv)
     char flag = config.recycle[strlen(config.recycle) - 1];
     flag = tolower(flag);
     config.recycle_limit = atoi(config.recycle);
+    printf("%c\n", flag);
     switch(flag)
     {
         case 'n':
@@ -109,12 +110,6 @@ int config_init(int argc, char **argv)
         default:
             logerr("%s connot unrecognized");
             return EV_ERR;
-    }
-
-    if (config.recycle >= 0)
-    {
-        logerr("when total nolimit, can not set recycle!");
-        return EV_ERR;
     }
 
     config.el = aeCreateEventLoop(config.parallel + 129);
