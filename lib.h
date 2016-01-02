@@ -20,7 +20,7 @@
 char* strnstr(char* s1, char* s2, size_t size);
 int net_noblock(int fd, bool b);
 int net_recv(int fd, char *buf, size_t len);
-int size_fmt(char *buf, size_t len, int size);
+int size_fmt(char *buf, size_t len, long long size);
 
 
 #endif

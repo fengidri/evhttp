@@ -69,11 +69,11 @@ int net_recv(int fd, char *buf, size_t len)
     return n;
 }
 
-int size_fmt(char *buf, size_t len, int size)
+int size_fmt(char *buf, size_t len, long long size)
 {
     size_t p = 0;
     char *ps = " KMGT";
-    float s;
+    double  s;
     int n;
     s = size;
     while(1)
