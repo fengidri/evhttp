@@ -19,19 +19,26 @@
 #include "lib.h"
 
 struct config{
-    const char *remote_addr;
-    char        remote_add_resolved[32];
-    int         remote_port;
+    aeEventLoop *el;
+
+    const char     *remote_addr;
+    char            remote_add_resolved[32];
+    int             remote_port;
+    struct hostent *hptr;
+
     int         parallel;
+    bool        debug;
+
     int         total;
     int         total_limit;
+    int         active;
+    int        recycle;
+
     const char  *http_host;
-    aeEventLoop *el;
+
     int         index;
-    const char * flag;
-    struct hostent *hptr;
-    bool        debug;
-    int active;
+    const char *flag;
+
 
     bool               sum;
     int                sum_timer_id;

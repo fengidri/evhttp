@@ -42,7 +42,7 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     return 1000;
 }
 
-void config_init(int argc, char **argv)
+int config_init(int argc, char **argv)
 {
     config.remote_addr = "127.0.0.1";
     config.remote_port = 80;
@@ -56,9 +56,10 @@ void config_init(int argc, char **argv)
     config.total_limit = 1;
     config.total       = 0;
     config.sum         = false;
+    config.recycle     = -1;
 
     char ch;
-    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vs")) != -1) {
+    while ((ch = getopt(argc, argv, "H:h:p:l:f:t:vsr")) != -1) {
         switch (ch) {
             case 'h': config.remote_addr = optarg;       break;
             case 'p': config.remote_port = atoi(optarg); break;
@@ -68,6 +69,7 @@ void config_init(int argc, char **argv)
             case 't': config.total_limit = atoi(optarg); break;
             case 'v': config.debug       = true;         break;
             case 's': config.sum       = true;         break;
+            case 'r': config.recycle       = 0;         break;
         }
     }
 
@@ -81,7 +83,14 @@ void config_init(int argc, char **argv)
 
     if (NULL == config.http_host) config.http_host = config.remote_addr;
 
-    if (0 == config.total_limit) config.total_limit = -1;
+    if (0 == config.total_limit){
+        config.total_limit = -1;
+        if (config.recycle >= 0)
+        {
+            logerr("when total nolimit, can not set recycle!");
+            return EV_ERR;
+        }
+    }
 
 
     config.el = aeCreateEventLoop(config.parallel + 129);
@@ -90,12 +99,13 @@ void config_init(int argc, char **argv)
     {
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
+    return EV_OK;
 }
 
 
 int main(int argc, char **argv)
 {
-    config_init(argc, argv);
+    if (EV_OK != config_init(argc, argv)) return -1;
     printf("Start: Host: %s:%d Parallel: %d\n",
             config.remote_add_resolved, config.remote_port, config.parallel);
 

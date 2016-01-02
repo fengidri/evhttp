@@ -357,8 +357,18 @@ void http_destory(struct response *res)
     {
         if (config.total >=  config.total_limit)
         {
+            if (config.recycle >= 0)
+            {
+                config.total   =  0;
+                config.recycle += 1;
+                config.index   =  0;
+                http_new();
+                return;
+            }
             if (config.active <= 0)
+            {
                 aeStop(config.el);
+            }
         }
         else{
             http_new();
