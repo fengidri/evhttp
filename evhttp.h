@@ -94,10 +94,10 @@ struct http{
 
     struct timeval time_last;
 
-    float time_dns;
-    float time_connect;
-    float time_recv;
-    float time_trans;
+    int time_dns;
+    int time_connect;
+    int time_recv;
+    int time_trans;
     //float time_max_read;
 };
 

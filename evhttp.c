@@ -254,14 +254,14 @@ check:
     goto check;
 }
 
-float update_time(struct http *h)
+int update_time(struct http *h)
 {
     struct timeval now;
-    float t;
+    int t;
     gettimeofday(&now, NULL);
 
-    t = now.tv_sec - h->time_last.tv_sec +
-        (now.tv_usec - h->time_last.tv_usec) / 1000000;
+    t = (now.tv_sec - h->time_last.tv_sec) * 1000 +
+        (now.tv_usec - h->time_last.tv_usec) / 1000;
     h->time_last = now;
 
     return t;
@@ -303,7 +303,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_OK == ret)// just output when not sum
     {
-        logdebug("Status: %d Recv: %d %.2f/%.2f/%.2f/%.2f URL: %s\n",
+        logdebug("%d R: %d T: %.2d/%.2d/%.2d/%.2d :%s\n",
                 h->status, h->content_recv,
                 h->time_dns, h->time_connect, h->time_recv, h->time_trans,
                 h->url
