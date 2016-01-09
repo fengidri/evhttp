@@ -17,6 +17,9 @@
 
 #define logerr(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
+#define timeval_diff(start, end) ((end.tv_sec - start.tv_sec) * 1000 +\
+    (end.tv_usec - start.tv_usec)/1000)
+
 char *strnstr(const char *s1, const char *s2, size_t len);
 int size_fmt(char *buf, size_t len, long long size);
 

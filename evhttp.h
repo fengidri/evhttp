@@ -100,11 +100,13 @@ struct http{
     int content_recv;
 
     struct timeval time_last;
+    struct timeval time_start_read;
 
     int time_dns;
     int time_connect;
     int time_recv;
     int time_trans;
+    int time_max_read;
     //float time_max_read;
 };
 

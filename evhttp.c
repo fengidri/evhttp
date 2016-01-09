@@ -266,14 +266,15 @@ check:
     goto check;
 }
 
+
 int update_time(struct http *h)
 {
     struct timeval now;
     int t;
+
     gettimeofday(&now, NULL);
 
-    t = (now.tv_sec - h->time_last.tv_sec) * 1000 +
-        (now.tv_usec - h->time_last.tv_usec) / 1000;
+    t = timeval_diff(h->time_last, now);
     h->time_last = now;
 
     return t;
@@ -282,13 +283,17 @@ int update_time(struct http *h)
 void print_http_info(struct http *h)
 {
     char value[1204];
-    int lens[6];
+    int lens[8];
+    char speed[20];
     char *pos, *next;
 
-    snprintf(value, sizeof(value), "%6d|%5d|%5d|%5d|%5d|%4d|%s",
+    size_fmt(speed, sizeof(speed), (float)h->content_recv/h->time_trans * 1000);
+
+    snprintf(value, sizeof(value), "%6d|%5d|%5d|%5d|%5d|%5d|%4d|%s|%s",
                 h->status,
-                h->time_dns, h->time_connect, h->time_recv, h->time_trans,
-                h->content_recv, h->url);
+                h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
+                h->time_trans,
+                h->content_recv, speed, h->url);
 
     pos = value;
     for (size_t i=0; i < sizeof(lens)/sizeof(lens[0]); ++i)
@@ -299,10 +304,10 @@ void print_http_info(struct http *h)
         pos = next + 1;
     }
 
-    logdebug("%*s %*s %*s %*s %*s %*s URL\n",
-         lens[0], "STATUS", lens[1], "DNS",   lens[2], "CON",
-         lens[3], "RECV",   lens[4], "TRANS", lens[5], "BODY",
-         "ULR");
+    logdebug("%*s %*s %*s %*s %*s %*s %*s %*s URL\n",
+         *lens, "STATUS", lens[1], "DNS",  lens[2], "CON",
+         lens[3], "RECV",   lens[4], "READ", lens[5], "TRANS", lens[6], "BODY",
+         lens[7], "Speed", "ULR");
 
     logdebug("%s\n", value);
 
@@ -321,6 +326,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
         if (0 == h->buf_offset)
         {
             h->time_recv = update_time(h);
+            gettimeofday(&h->time_start_read, NULL);
         }
         ret = recv_header(fd, h);
         if (EV_OK == ret)
@@ -330,6 +336,9 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
         }
     }
     else{
+        int t = update_time(h);
+        if (t > h->time_max_read) h->time_max_read = t;
+
         if (h->chunked)
             handle = recv_is_chunked;
         else
@@ -340,6 +349,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_AG == ret) return;
 
+    h->time_last = h->time_start_read;
     h->time_trans = update_time(h);
 
     if (EV_OK == ret)
