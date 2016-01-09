@@ -326,7 +326,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
         if (0 == h->buf_offset)
         {
             h->time_recv = update_time(h);
-            gettimeofday(&h->time_start_read, NULL);
+            h->time_start_read = h->time_last;
         }
         ret = recv_header(fd, h);
         if (EV_OK == ret)
