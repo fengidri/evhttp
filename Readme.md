@@ -1,20 +1,8 @@
-## evhttp
-http client with ae event lib.
-
-make http request to remote\_addr:remote\_port
-
-```
-GET /<flag><num>/<random> HTTP/1.1
-Host: <http_host>
-Content-Length: 0
-User-Agent: evhttp
-Accept: */*
-```
-
-support respose with chuned or with content-length or without content-length.
+# evhttp
+http client with ae event lib for analytics or benchmark.
 
 
-# opt
+# command line args
 ## remote
 The is options for the global remote info.
 * -d: set the domain for http host and the server ip. This also can be set by
