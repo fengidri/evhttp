@@ -279,6 +279,35 @@ int update_time(struct http *h)
     return t;
 }
 
+void print_http_info(struct http *h)
+{
+    char value[1204];
+    int lens[6];
+    char *pos, *next;
+
+    snprintf(value, sizeof(value), "%6d|%5d|%5d|%5d|%5d|%4d|%s",
+                h->status,
+                h->time_dns, h->time_connect, h->time_recv, h->time_trans,
+                h->content_recv, h->url);
+
+    pos = value;
+    for (size_t i=0; i < sizeof(lens)/sizeof(lens[0]); ++i)
+    {
+        next = strstr(pos, "|");
+        lens[i] = next - pos;
+        *next = ' ';
+        pos = next + 1;
+    }
+
+    logdebug("%*s %*s %*s %*s %*s %*s URL\n",
+         lens[0], "STATUS", lens[1], "DNS",   lens[2], "CON",
+         lens[3], "RECV",   lens[4], "TRANS", lens[5], "BODY",
+         "ULR");
+
+    logdebug("%s\n", value);
+
+}
+
 void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 {
     struct http *h;
@@ -313,13 +342,9 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     h->time_trans = update_time(h);
 
-    if (EV_OK == ret)// just output when not sum
+    if (EV_OK == ret)
     {
-        logdebug("%d R:%d D:%.2d C:%.2d R:%.2d T:%.2d :%s\n",
-                h->status, h->content_recv,
-                h->time_dns, h->time_connect, h->time_recv, h->time_trans,
-                h->url
-                );
+        print_http_info(h);
     }
 
     http_destory(h);
