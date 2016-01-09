@@ -6,13 +6,25 @@
  *   description  :
  */
 
-#include "evhttp.h"
 #include <sys/socket.h>
 #include <error.h>
 #include <ctype.h>
 #include <errno.h>
 
 #include "url.h"
+#include "evhttp.h"
+#include <stdarg.h>
+
+void logdebug(const char *fmt, ...)
+{
+    va_list argList;
+    if (config.loglevel < LOG_DEBUG) return;
+
+    va_start(argList, fmt);
+    vprintf(fmt, argList);
+    va_end(argList);
+}
+
 
 int http_new();
 void http_destory(struct http *);
@@ -23,11 +35,11 @@ struct config config = {
     .parallel      = 1,
     .total_limit   = 1,
     .flag          = "M",
-    .debug         = false,
     .sum           = false,
     .recycle       = NULL,
     .recycle_times = 1,
     .urls          = config._urls,
+    .loglevel      = LOG_DEBUG,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -303,7 +315,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_OK == ret)// just output when not sum
     {
-        logdebug("%d R: %d T: %.2d/%.2d/%.2d/%.2d :%s\n",
+        logdebug("%d R:%d D:%.2d C:%.2d R:%.2d T:%.2d :%s\n",
                 h->status, h->content_recv,
                 h->time_dns, h->time_connect, h->time_recv, h->time_trans,
                 h->url

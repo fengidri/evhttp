@@ -65,7 +65,6 @@ int arg_parser(int argc, char **argv)
         ch = arg[1];
         switch(ch)
         {
-            case 'v': config.debug = true; continue;
             case 's': config.sum   = true; continue;
             case '\0':
                       logerr("arg: - : error\n");
@@ -161,6 +160,7 @@ int config_init(int argc, char **argv)
 
     if (config.sum)
     {
+        config.loglevel = LOG_ERROR;
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
     return EV_OK;

@@ -28,6 +28,13 @@ struct remote{
     char ip[32];
 };
 
+enum loglevel{
+    LOG_ERROR,
+    LOG_DEBUG,
+    LOG_INFO,
+    LOG_SUM,
+};
+
 //enum mode{
 //    MODE_NORMAL; // request url one by one
 //    MODE_REPEAT; // repeat request url one by one
@@ -43,7 +50,7 @@ struct config{
 
 
     int         parallel;
-    bool        debug;
+    enum loglevel  loglevel;
 
     char      **urls;
     char       *_urls[100];
@@ -103,8 +110,6 @@ struct http{
 
 int http_new();
 extern struct config config;
-
-#define logdebug(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__)
 
 #endif
 
