@@ -17,7 +17,7 @@
 
 #define logerr(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
-char* strnstr(char* s1, char* s2, size_t size);
+char *strnstr(const char *s1, const char *s2, size_t len);
 int size_fmt(char *buf, size_t len, long long size);
 
 int net_noblock(int fd, bool b);

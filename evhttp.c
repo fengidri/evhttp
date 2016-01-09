@@ -104,7 +104,11 @@ int recv_header(int fd, struct http *h)
         n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
 
         if (n < 0)  return n;
-        if (n == 0) return EV_ERR;
+        if (n == 0){
+            logerr("Server close connection prematurely "
+                    "while reading header!!\n");
+            return EV_ERR;
+        }
 
         h->buf_offset += n;
 
@@ -235,14 +239,15 @@ int recv_is_chunked(int fd, struct http *h)
     int n;
 check:
     if (0 == h->chunk_length) return EV_OK;
-
-    n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
-    if (n < 0) return n;
-    if (n == 0){
-        h->eof = true;
+    if (h->eof)
+    {
         logerr("Server close connection prematurely!!");
         return  EV_ERR;
     }
+
+    n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
+    if (n < 0) return n;
+    if (n == 0) h->eof = true;
     h->buf_offset += n;
 
     http_chunk_read(h, 0);
@@ -295,12 +300,6 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     if (EV_AG == ret) return;
 
     h->time_trans = update_time(h);
-
-    // END
-    if (EV_ERR == ret)
-    {
-        logerr("Recv Response Error!!!\n");
-    }
 
     if (EV_OK == ret)// just output when not sum
     {

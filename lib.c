@@ -18,15 +18,21 @@
 
 #include "lib.h"
 
-char* strnstr(char* s1, char* s2, size_t size)
+char *strnstr(const char *s1, const char *s2, size_t len)
 {
-    char c;
-    char *p;
-    c = s1[size -1];
-    s1[size - 1] = 0;
-    p = strstr(s1, s2);
-    s1[size - 1] = c;
-    return p;
+    size_t l2;
+
+    l2 = strlen(s2);
+    if (!l2)
+        return (char *)s1;
+
+    while (len >= l2) {
+        len--;
+        if (!memcmp(s1, s2, l2))
+            return (char *)s1;
+        s1++;
+    }
+    return NULL;
 }
 
 int net_noblock(int fd, bool b)
