@@ -37,7 +37,8 @@ bool url_parser(struct url *u, const char *url)
             u->domain = url + 8;
             u->https = true;
         }
-        u->domain = url;
+        else
+            u->domain = url;
     }
 
     u->url = strstr(u->domain, "/");
@@ -54,7 +55,10 @@ bool url_parser(struct url *u, const char *url)
     if (p)
     {
         u->port = atoi(p + 1);
-        if (0 == u->port) return false;
+        if (0 == u->port){
+            logerr("Port error: %s\n", url);
+            return false;
+        }
         u->domain_n = p - u->domain;
     }
     return true;
@@ -125,7 +129,10 @@ bool select_url(struct http *h)
     url = config.urls[config.index];
     config.index++;
 
-    if (!url_parser(&u, url)) return false;
+    if (!url_parser(&u, url)){
+        logerr("URL parser error: %s\n", url);
+        return false;
+    }
 
     if (u.url)
         ev_strncpy(h->url, u.url, sizeof(h->url));

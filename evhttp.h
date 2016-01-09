@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include <stdbool.h>
+#include <sys/time.h>
 #include "ae.h"
 #include "lib.h"
 
@@ -91,12 +92,13 @@ struct http{
     int content_length;
     int content_recv;
 
-    time_t time_start;
+    struct timeval time_last;
+
     float time_dns;
     float time_connect;
     float time_recv;
-    float time_max_read;
-    float time_total;
+    float time_trans;
+    //float time_max_read;
 };
 
 int http_new();

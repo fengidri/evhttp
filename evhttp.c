@@ -16,6 +16,7 @@
 
 int http_new();
 void http_destory(struct http *);
+void http_chunk_read(struct http *h, size_t offset);
 
 struct config config = {
     .remote.port   = 80,
@@ -53,7 +54,6 @@ int process_header(struct http *h)
     h->read_header = false;
 
     length = pos - h->buf + 4;
-    h->content_recv = h->buf_offset - length;
     h->status = atoi(h->buf + 9);
     if (200 == h->status)
     {
@@ -74,6 +74,7 @@ int process_header(struct http *h)
     pos = strnstr(h->buf, "content-length:", length);
     if (pos)
     {
+        h->content_recv = h->buf_offset - length;
         h->content_length = atoi(pos + 15);
         h->chunked = false;
         return EV_OK;
@@ -82,9 +83,9 @@ int process_header(struct http *h)
     pos = strnstr(h->buf, "transfer-encoding:", length);
     if (pos)
     {
-        h->buf_offset = h->buf_offset - length;
-        memcpy(h->buf, h->buf + length, h->buf_offset);
         h->chunk_length = -1;
+        h->chunk_recv = 0;
+        http_chunk_read(h, length);
         h->chunked = true;
         return EV_OK;
     }
@@ -111,7 +112,7 @@ int recv_header(int fd, struct http *h)
         {
             return EV_OK;
         }
-        if (h->buf_offset >= (int)sizeof(h->buf))
+        if (h->buf_offset >= sizeof(h->buf))
         {
             logerr("Header Too big!");
             return EV_ERR;
@@ -134,7 +135,7 @@ check:
             if (h->eof)
             {
                 logerr("Server close connection prematurely!!");
-                return EV_OK;
+                return EV_ERR;
             }
         }
     }
@@ -149,59 +150,116 @@ check:
 
     h->content_recv += n;
     goto check;
+}
 
+
+/**
+ * read_chunk --
+ * @buffer:
+ * @size:
+ * @length: chunk length
+ * @recved: chunk recved
+ * return : show the date has been readed;
+ */
+int chunk_read(char *buffer, size_t size, int *length, int *recved,
+        size_t *body)
+{
+    char *pos, *buf;
+    size_t left, except;
+
+    pos = buf = buffer;
+    left = size;
+
+    if (0 == *length) return 0;
+    if (*length >= 1) goto read;
+
+    while (1)
+    {
+        pos = strnstr(buf, "\r\n", left);
+        if (!pos){
+            *length = -1;
+            return buf - buffer;
+        };
+
+        *length = strtol(buf, NULL, 16);
+        if (0 == *length)
+        {
+            if (5 > left)
+            {
+                *length = -1;
+                return 0;
+            }
+            if ('0' != *buf)
+            {
+                logerr("Chunked Fmort Error!\n");
+            }
+            return pos - buffer + 4;
+        }
+        *body += *length;
+
+        *length = *length + 2;
+        *recved = 0;
+
+        buf = pos + 2;
+        left = size - (buf - buffer);
+read:
+        except = *length - *recved;
+        if (left <= except)
+        {
+            *recved += left;
+            if (left == except) *length = -1;
+            return size;
+        }
+
+        buf = buf + except;
+        left = size - (buf - buffer);
+    }
+}
+
+void http_chunk_read(struct http *h, size_t offset)
+{
+    int n;
+    size_t nn = 0;
+    n = chunk_read(h->buf + offset, h->buf_offset - offset,
+            &h->chunk_length, &h->chunk_recv, &nn);
+
+    h->buf_offset = h->buf_offset - offset - n;
+    h->content_recv += nn;
+
+    if (h->buf_offset > 0)
+        memmove(h->buf, h->buf + offset + n, h->buf_offset);
 }
 
 int recv_is_chunked(int fd, struct http *h)
 {
-    int n, size;
-    char *pos;
+    int n;
+check:
+    if (0 == h->chunk_length) return EV_OK;
 
-    if (h->chunk_length == -1)
-    {
-        while(1)
-        {
-            if (h->buf_offset > 2)
-            {
-                pos = strnstr(h->buf, "\r\n", h->buf_offset);
-                if (pos)
-                {
-                    h->chunk_length = strtol(h->buf, NULL, 16);
-                    if (0 == h->chunk_length) return EV_OK; // END
-
-                    h->content_recv += h->buf_offset - (pos - h->buf + 2);
-                    h->chunk_recv = h->buf_offset - (pos - h->buf + 2);
-                    goto chunk;
-                }
-            }
-            if (h->buf_offset > 300) return EV_ERR;
-
-            n = ev_recv(fd, h->buf + h->buf_offset,
-                    sizeof(h->buf) - h->buf_offset);
-
-            if (n < 0) return n;
-            if (0 == n) return EV_ERR;
-            h->buf_offset += n;
-        }
-    }
-
-chunk:
-    if (h->chunk_recv - h->chunk_length == 2)
-    {
-        h->chunk_length = -1;
-        h->content_recv -= 2;
-        h->buf_offset = 0;
-        return recv_is_chunked(fd, h);
-    }
-
-    size = MIN((int)sizeof(h->buf), h->chunk_length + 2 - h->chunk_recv);
-    n = ev_recv(fd, h->buf, size);
+    n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
     if (n < 0) return n;
-    if (n == 0) h->eof = true;
-    h->content_recv += n;
-    h->chunk_recv += n;
-    goto chunk;
+    if (n == 0){
+        h->eof = true;
+        logerr("Server close connection prematurely!!");
+        return  EV_ERR;
+    }
+    h->buf_offset += n;
 
+    http_chunk_read(h, 0);
+    goto check;
+}
+
+float update_time(struct http *h)
+{
+    struct timeval now;
+    float t;
+    gettimeofday(&now, NULL);
+
+    t = now.tv_sec - h->time_last.tv_sec +
+        (now.tv_usec - h->time_last.tv_usec) / 1000000;
+    h->time_last = now;
+
+    return t;
 }
 
 void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
@@ -214,6 +272,10 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (h->read_header)
     {
+        if (0 == h->buf_offset)
+        {
+            h->time_recv = update_time(h);
+        }
         ret = recv_header(fd, h);
         if (EV_OK == ret)
         {
@@ -232,6 +294,8 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_AG == ret) return;
 
+    h->time_trans = update_time(h);
+
     // END
     if (EV_ERR == ret)
     {
@@ -240,8 +304,11 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
     if (EV_OK == ret)// just output when not sum
     {
-        logdebug("Status: %d Recv: %d URL: %s\n",
-                h->status, h->content_recv, h->url);
+        logdebug("Status: %d Recv: %d %.2f/%.2f/%.2f/%.2f URL: %s\n",
+                h->status, h->content_recv,
+                h->time_dns, h->time_connect, h->time_recv, h->time_trans,
+                h->url
+                );
     }
 
     http_destory(h);
@@ -259,11 +326,13 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     int n;
     struct http *h = priv;
 
+    h->time_connect = update_time(h);
+
     n = snprintf(h->buf, sizeof(h->buf), request_fmt,
             h->url,
             h->remote->domain);
 
-    if (n >= (int)sizeof(h->buf))
+    if (n >= sizeof(h->buf))
     {
         http_destory(h);
         return ;
@@ -292,8 +361,10 @@ int http_new()
     h->eof         = 0;
     h->read_header = true;
     h->remote      = &h->_remote;
+    h->content_recv = 0;
 
 url:
+    gettimeofday(&h->time_last, NULL);
     if (!get_url(h))
     {
         free(h);
@@ -303,6 +374,8 @@ url:
         }
         return EV_OK;
     }
+
+    h->time_dns = update_time(h);
 
     logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
     h->fd = net_connect(h->remote->ip, h->remote->port);
