@@ -158,12 +158,9 @@ bool select_url(struct http *h)
         h->remote->port = config.remote.port;
     }
 
+    h->remote->ip[0] = 0;
+
     if (config.remote.ip[0]) strcpy(h->remote->ip, config.remote.ip);
-    else{
-        if (!net_resolve(h->remote->domain, h->remote->ip,
-                    sizeof(h->remote->ip)))
-            return false;
-    }
     return true;
 }
 

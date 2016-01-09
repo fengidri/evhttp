@@ -410,7 +410,6 @@ int http_new()
     h->content_recv = 0;
 
 url:
-    gettimeofday(&h->time_last, NULL);
     if (!get_url(h))
     {
         free(h);
@@ -419,6 +418,18 @@ url:
             aeStop(config.el);
         }
         return EV_OK;
+    }
+
+    update_time(h);
+    if (!h->remote->ip[0])
+    {
+        logdebug("resolve %s\n", h->remote->domain);
+        if (!net_resolve(h->remote->domain, h->remote->ip,
+                    sizeof(h->remote->ip)))
+        {
+            usleep(100000);
+            goto url;
+        }
     }
 
     h->time_dns = update_time(h);
