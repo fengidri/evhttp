@@ -289,7 +289,7 @@ void print_http_info(struct http *h)
 
     size_fmt(speed, sizeof(speed), (float)h->content_recv/h->time_trans * 1000);
 
-    snprintf(value, sizeof(value), "%3d|%5d|%5d|%5d|%5d|%5d|%4d|%s|%s",
+    snprintf(value, sizeof(value), "%-4d|%-5d|%-5d|%-5d|%-5d|%-5d|%-4d|%-s|%-s",
                 h->status,
                 h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
                 h->time_trans,
@@ -304,7 +304,7 @@ void print_http_info(struct http *h)
         pos = next + 1;
     }
 
-    logdebug("%*s %*s %*s %*s %*s %*s %*s %*s URL\n",
+    logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
          *lens, "CODE", lens[1], "DNS",  lens[2], "CON",
          lens[3], "RECV",   lens[4], "READ", lens[5], "TRANS", lens[6], "BODY",
          lens[7], "Speed", "ULR");
