@@ -146,7 +146,6 @@ int size_fmt(char *buf, size_t len, long long size)
         else
             break;
     }
-    n = snprintf(buf, len - 1, "%.3f", s);
-    buf[n] = ps[p];
-    return n + 1;
+
+    return snprintf(buf, len, "%.3f%c", s, ps[p]);
 }

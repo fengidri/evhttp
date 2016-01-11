@@ -11,8 +11,8 @@ The is options for the global remote info.
 * -p: set the remote port. Default 80.
 
 ## global
-* -l: set the parallel num
-* -t: set the total request. 0 means not limit. Default is 1.
+* -n: set the total request. 0 means not limit. Default is 1.
+* -x: set the parallel num
 * -r: set the recycle limit. when tagert the recycle limit. the url will
   restart. the arg of this is like 1000n, 1000k, 1000m.
   the last char set the type of recycle.

@@ -91,9 +91,28 @@ int arg_parser(int argc, char **argv)
                 break;
             case 'f': config.flag             = optarg;       break;
             case 'p': config.remote.port      = atoi(optarg); break;
-            case 'l': config.parallel         = atoi(optarg); break;
-            case 't': config.total_limit      = atoi(optarg); break;
+            case 'x': config.parallel         = atoi(optarg); break;
+            case 'n': config.total_limit      = atoi(optarg); break;
             case 'r': config.recycle          = optarg;       break;
+            case 'H':
+                      {
+                          size_t l;
+                          l =  strlen(optarg);
+                          if (l + 2 > sizeof(config.headers) - config.headers_n)
+                          {
+                              logerr("Too many headers in command line.");
+                              return EV_ERR;
+                          }
+
+                          strcpy(config.headers + config.headers_n, optarg);
+                          config.headers_n += l;
+
+                          config.headers[config.headers_n] = '\r';
+                          config.headers_n += 1;
+                          config.headers[config.headers_n] = '\n';
+                          config.headers_n += 1;
+                          break;
+                      }
         }
     }
     return EV_OK;
@@ -169,8 +188,6 @@ int config_init(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-    debug();
-
     if (EV_OK != config_init(argc, argv)) return -1;
 
     if (!config.urls_n)

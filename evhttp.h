@@ -52,6 +52,9 @@ struct config{
     int         parallel;
     enum loglevel  loglevel;
 
+    char   headers[2048];
+    size_t headers_n;
+
     char      **urls;
     char       *_urls[100];
     size_t      urls_n;

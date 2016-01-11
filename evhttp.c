@@ -289,7 +289,7 @@ void print_http_info(struct http *h)
 
     size_fmt(speed, sizeof(speed), (float)h->content_recv/h->time_trans * 1000);
 
-    snprintf(value, sizeof(value), "%6d|%5d|%5d|%5d|%5d|%5d|%4d|%s|%s",
+    snprintf(value, sizeof(value), "%3d|%5d|%5d|%5d|%5d|%5d|%4d|%s|%s",
                 h->status,
                 h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
                 h->time_trans,
@@ -305,7 +305,7 @@ void print_http_info(struct http *h)
     }
 
     logdebug("%*s %*s %*s %*s %*s %*s %*s %*s URL\n",
-         *lens, "STATUS", lens[1], "DNS",  lens[2], "CON",
+         *lens, "CODE", lens[1], "DNS",  lens[2], "CON",
          lens[3], "RECV",   lens[4], "READ", lens[5], "TRANS", lens[6], "BODY",
          lens[7], "Speed", "ULR");
 
@@ -367,25 +367,33 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
                     "Host: %s\r\n" \
                     "Content-Length: 0\r\n" \
                     "User-Agent: evhttp\r\n" \
-                    "Accept: */*\r\n" \
-                    "\r\n"
-    int n;
+                    "Accept: */*\r\n"
+    int n, l;
     struct http *h = priv;
 
     h->time_connect = update_time(h);
 
-    n = snprintf(h->buf, sizeof(h->buf), request_fmt,
-            h->url,
-            h->remote->domain);
+    l = sizeof(h->buf) - config.headers_n - 2;
+    n = snprintf(h->buf, l, request_fmt, h->url, h->remote->domain);
 
-    if (n >= sizeof(h->buf))
+    if (n >= l)
     {
+        logerr("URL too long!!!!");
         http_destory(h);
-        return ;
+        return;
     }
 
+    memcpy(h->buf + n, config.headers, config.headers_n);
+    n += config.headers_n;
+
+    h->buf[n] = '\r';
+    ++n;
+    h->buf[n] = '\n';
+    ++n;
+
+
     logdebug("===========================================\n");
-    logdebug("%s", h->buf);
+    logdebug("%.*s", n, h->buf);
 
     n = send(fd, h->buf, n, 0);
     if (n < 0)
