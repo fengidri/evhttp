@@ -97,27 +97,11 @@ typedef struct
     struct QUESTION *ques;
 } QUERY;
 
-int main( int argc , char *argv[])
-{
-    unsigned char hostname[100];
-
-    //Get the DNS servers from the resolv.conf file
-    get_dns_servers();
-
-    //Get the hostname from the terminal
-    printf("Enter Hostname to Lookup : ");
-    scanf("%s" , hostname);
-
-    //Now get the ip of this hostname , A record
-    ngethostbyname(hostname , T_A);
-
-    return 0;
-}
 
 /*
  * Perform a DNS query by sending a packet
  * */
-void ngethostbyname(unsigned char *host , int query_type)
+void send_dns_request(unsigned char *host , int query_type)
 {
     unsigned char buf[65536],*qname,*reader;
     int i , j , stop , s;
@@ -163,16 +147,133 @@ void ngethostbyname(unsigned char *host , int query_type)
     ChangetoDnsNameFormat(qname , host);
     qinfo =(struct QUESTION*)&buf[sizeof(struct DNS_HEADER) + (strlen((const char*)qname) + 1)]; //fill it
 
-    qinfo->qtype = htons( query_type ); //type of the query , A , MX , CNAME , NS etc
+    qinfo->qtype = htons(T_A); //type of the query , A , MX , CNAME , NS etc
     qinfo->qclass = htons(1); //its internet (lol)
 
-    printf("\nSending Packet...");
     if( sendto(s,(char*)buf,sizeof(struct DNS_HEADER) + (strlen((const char*)qname)+1) + sizeof(struct QUESTION),0,(struct sockaddr*)&dest,sizeof(dest)) < 0)
     {
-        perror("sendto failed");
     }
-    printf("Done");
 
+
+}
+
+/*
+ *
+ * */
+u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
+{
+    unsigned char *name;
+    unsigned int p=0,jumped=0,offset;
+    int i , j;
+
+    *count = 1;
+    name = (unsigned char*)malloc(256);
+
+    name[0]='\0';
+
+    //read the names in 3www6google3com format
+    while(*reader!=0)
+    {
+        if(*reader>=192)
+        {
+            offset = (*reader)*256 + *(reader+1) - 49152; //49152 = 11000000 00000000 ;)
+            reader = buffer + offset - 1;
+            jumped = 1; //we have jumped to another location so counting wont go up!
+        }
+        else
+        {
+            name[p++]=*reader;
+        }
+
+        reader = reader+1;
+
+        if(jumped==0)
+        {
+            *count = *count + 1; //if we havent jumped to another location then we can count up
+        }
+    }
+
+    name[p]='\0'; //string complete
+    if(jumped==1)
+    {
+        *count = *count + 1; //number of steps we actually moved forward in the packet
+    }
+
+    //now convert 3www6google3com0 to www.google.com
+    for(i=0;i<(int)strlen((const char*)name);i++)
+    {
+        p=name[i];
+        for(j=0;j<(int)p;j++)
+        {
+            name[i]=name[i+1];
+            i=i+1;
+        }
+        name[i]='.';
+    }
+    name[i-1]='\0'; //remove the last dot
+    return name;
+}
+
+/*
+ * Get the DNS servers from /etc/resolv.conf file on Linux
+ * */
+void get_dns_servers()
+{
+    FILE *fp;
+    char line[200] , *p;
+    if((fp = fopen("/etc/resolv.conf" , "r")) == NULL)
+    {
+        printf("Failed opening /etc/resolv.conf file \n");
+    }
+
+    while(fgets(line , 200 , fp))
+    {
+        if(line[0] == '#')
+        {
+            continue;
+        }
+        if(strncmp(line , "nameserver" , 10) == 0)
+        {
+            p = strtok(line , " ");
+            p = strtok(NULL , " ");
+
+            //p now is the dns ip :)
+            //????
+        }
+    }
+
+    strcpy(dns_servers[0] , "208.67.222.222");
+    strcpy(dns_servers[1] , "208.67.220.220");
+}
+
+/*
+ * This will convert www.google.com to 3www6google3com
+ * got it :)
+ * */
+void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host)
+{
+    int lock = 0 , i;
+    strcat((char*)host,".");
+
+    for(i = 0 ; i < strlen((char*)host) ; i++)
+    {
+        if(host[i]=='.')
+        {
+            *dns++ = i-lock;
+            for(;lock<i;lock++)
+            {
+                *dns++=host[lock];
+            }
+            lock++; //or lock=i+1;
+        }
+    }
+    *dns++='\0';
+}
+
+
+
+void recv_dns_response()
+{
     //Receive the answer
     i = sizeof dest;
     printf("\nReceiving answer...");
@@ -181,7 +282,6 @@ void ngethostbyname(unsigned char *host , int query_type)
         perror("recvfrom failed");
     }
     printf("Done");
-
     dns = (struct DNS_HEADER*) buf;
 
     //move ahead of the dns header and the query field
@@ -313,117 +413,5 @@ void ngethostbyname(unsigned char *host , int query_type)
         printf("\n");
     }
     return;
-}
 
-/*
- *
- * */
-u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
-{
-    unsigned char *name;
-    unsigned int p=0,jumped=0,offset;
-    int i , j;
-
-    *count = 1;
-    name = (unsigned char*)malloc(256);
-
-    name[0]='\0';
-
-    //read the names in 3www6google3com format
-    while(*reader!=0)
-    {
-        if(*reader>=192)
-        {
-            offset = (*reader)*256 + *(reader+1) - 49152; //49152 = 11000000 00000000 ;)
-            reader = buffer + offset - 1;
-            jumped = 1; //we have jumped to another location so counting wont go up!
-        }
-        else
-        {
-            name[p++]=*reader;
-        }
-
-        reader = reader+1;
-
-        if(jumped==0)
-        {
-            *count = *count + 1; //if we havent jumped to another location then we can count up
-        }
-    }
-
-    name[p]='\0'; //string complete
-    if(jumped==1)
-    {
-        *count = *count + 1; //number of steps we actually moved forward in the packet
-    }
-
-    //now convert 3www6google3com0 to www.google.com
-    for(i=0;i<(int)strlen((const char*)name);i++)
-    {
-        p=name[i];
-        for(j=0;j<(int)p;j++)
-        {
-            name[i]=name[i+1];
-            i=i+1;
-        }
-        name[i]='.';
-    }
-    name[i-1]='\0'; //remove the last dot
-    return name;
-}
-
-/*
- * Get the DNS servers from /etc/resolv.conf file on Linux
- * */
-void get_dns_servers()
-{
-    FILE *fp;
-    char line[200] , *p;
-    if((fp = fopen("/etc/resolv.conf" , "r")) == NULL)
-    {
-        printf("Failed opening /etc/resolv.conf file \n");
-    }
-
-    while(fgets(line , 200 , fp))
-    {
-        if(line[0] == '#')
-        {
-            continue;
-        }
-        if(strncmp(line , "nameserver" , 10) == 0)
-        {
-            p = strtok(line , " ");
-            p = strtok(NULL , " ");
-
-            //p now is the dns ip :)
-            //????
-        }
-    }
-
-    strcpy(dns_servers[0] , "208.67.222.222");
-    strcpy(dns_servers[1] , "208.67.220.220");
-}
-
-/*
- * This will convert www.google.com to 3www6google3com
- * got it :)
- * */
-void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host)
-{
-    int lock = 0 , i;
-    strcat((char*)host,".");
-
-    for(i = 0 ; i < strlen((char*)host) ; i++)
-    {
-        if(host[i]=='.')
-        {
-            *dns++ = i-lock;
-            for(;lock<i;lock++)
-            {
-                *dns++=host[lock];
-            }
-            lock++; //or lock=i+1;
-        }
-    }
-    *dns++='\0';
 }

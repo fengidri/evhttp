@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "lib.h"
+#include "common.h"
 
 char *strnstr(const char *s1, const char *s2, size_t len)
 {

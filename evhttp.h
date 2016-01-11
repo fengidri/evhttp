@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include "ae.h"
-#include "lib.h"
+#include "common.h"
 
 #define RECYCLE_TIMES 1
 #define RECYCLE_BYTES 2
@@ -115,6 +115,8 @@ struct http{
 
 int http_new();
 extern struct config config;
+
+#include "ev.h"
 
 #endif
 

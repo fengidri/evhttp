@@ -15,8 +15,7 @@
 #include "evhttp.h"
 #include <arpa/inet.h>
 
-#include "lib.h"
-#include "debug.h"
+#include "common.h"
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
