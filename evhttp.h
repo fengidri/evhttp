@@ -77,6 +77,8 @@ struct config{
     long long          sum_recv_cur;
     long long          sum_status_200;
     long long          sum_status_other;
+
+    const char dns[20];
 };
 
 // http struct for every connect and request
