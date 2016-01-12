@@ -108,6 +108,40 @@ int net_connect(const char *addr, int port)
     return s;
 }
 
+
+int net_send_fast(int *fd, const char *addr, int port, char *buf, size_t size)
+{
+    if (!*fd)
+    {
+        int s;
+        s = socket(AF_INET,  SOCK_STREAM, 0);
+        if (s < 0)
+        {
+            perror("socket");
+            return -1;
+        }
+
+        if (net_noblock(s, true) < 0)
+        {
+            perror("noblock");
+            return -1;
+        }
+
+        *fd = s;
+    }
+
+    struct sockaddr_in remote_addr; //服务器端网络地址结构体
+    memset(&remote_addr,0,sizeof(remote_addr)); //数据初始化--清零
+    remote_addr.sin_family = AF_INET; //设置为IP通信
+    remote_addr.sin_addr.s_addr = inet_addr(addr);//服务器IP地址
+    remote_addr.sin_port = htons(port); //服务器端口号
+
+
+    return sendto(*fd, buf, size, MSG_FASTOPEN,
+            (struct sockaddr*)&remote_addr, sizeof(struct sockaddr));
+}
+
+
 int net_recv(int fd, char *buf, size_t len)
 {
     int n, err;

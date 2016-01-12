@@ -27,6 +27,7 @@ struct config config = {
     .recycle_times = 1,
     .urls          = config._urls,
     .loglevel      = LOG_DEBUG,
+    .fast_open     = false,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -301,8 +302,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
     http_destory(h);
 }
 
-
-void send_request(aeEventLoop *el, int fd, void *priv, int mask)
+int send_request(struct http *h)
 {
 #define request_fmt "GET %s HTTP/1.1\r\n" \
                     "Host: %s\r\n" \
@@ -310,7 +310,6 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
                     "User-Agent: evhttp\r\n" \
                     "Accept: */*\r\n"
     int n, l;
-    struct http *h = priv;
 
     h->time_connect = update_time(h);
 
@@ -320,8 +319,7 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     if (n >= l)
     {
         logerr("URL too long!!!!");
-        http_destory(h);
-        return;
+        return EV_ERR;
     }
 
     memcpy(h->buf + n, config.headers, config.headers_n);
@@ -336,11 +334,24 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     logdebug("===========================================\n");
     logdebug("%.*s", n, h->buf);
 
-    n = send(fd, h->buf, n, 0);
+    n = net_send_fast(&h->fd, h->remote->ip, h->remote->port, h->buf, n);
+
     if (n < 0)
     {
+        return EV_ERR;
+    }
+    return EV_OK;
+}
+
+
+void send_request_handler(aeEventLoop *el, int fd, void *priv, int mask)
+{
+    struct http *h = priv;
+
+    if (EV_OK != send_request(h))
+    {
         http_destory(h);
-        return ;
+        return;
     }
 
     aeDeleteFileEvent(el, fd, AE_WRITABLE);
@@ -357,6 +368,7 @@ int http_new()
     h->read_header = true;
     h->remote      = &h->_remote;
     h->content_recv = 0;
+    h->fd           = 0;
 
 url:
     if (!get_url(h))
@@ -383,15 +395,28 @@ url:
 
     h->time_dns = update_time(h);
 
-    logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
-    h->fd = net_connect(h->remote->ip, h->remote->port);
-
-    if (h->fd < 0){
-        usleep(100000);
-        goto url;
+    if (config.fast_open)
+    {
+        if (EV_OK != send_request(h))
+        {
+            if (h->fd < 0){
+                usleep(100000);
+                goto url;
+            }
+        }
+        aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, recv_response, h);
     }
+    else{
+        logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
+        h->fd = net_connect(h->remote->ip, h->remote->port);
 
-    aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request, h);
+        if (h->fd < 0){
+            usleep(100000);
+            goto url;
+        }
+
+        aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request_handler, h);
+    }
     config.active += 1;
 
     return EV_OK;
@@ -399,10 +424,16 @@ url:
 
 void http_destory(struct http *h)
 {
-    aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
-    aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
-    close(h->fd);
-    free(h);
+    if (h)
+    {
+        if (h->fd)
+        {
+            aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
+            aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
+            close(h->fd);
+        }
+        free(h);
+    }
 
     config.active -= 1;
     config.total += 1;

@@ -27,6 +27,7 @@ int net_noblock(int fd, bool b);
 int net_recv(int fd, char *buf, size_t len);
 int net_connect(const char *addr, int port);
 bool net_resolve(const char *addr, char *buf, size_t size);
+int net_send_fast(int *fd, const char *addr, int port, char *buf, size_t size);
 
 static inline void ev_strncpy(char *dest, const char *src, size_t size)
 {
