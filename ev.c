@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "ev.h"
+
 void logdebug(const char *fmt, ...)
 {
     va_list argList;
@@ -20,20 +21,26 @@ void logdebug(const char *fmt, ...)
     vprintf(fmt, argList);
     va_end(argList);
 }
+
 void print_http_info(struct http *h)
 {
     char value[1204];
     int lens[8];
-    char speed[20];
+    char speed[20] = {"-"};
     char *pos, *next;
 
-    size_fmt(speed, sizeof(speed), (float)h->content_recv/h->time_trans * 1000);
+    if (h->time_trans)
+        size_fmt(speed, sizeof(speed),
+                (double)h->content_recv/h->time_trans * 1000);
 
-    snprintf(value, sizeof(value), "%-4d|%-5d|%-5d|%-5d|%-5d|%-5d|%-4d|%-s|%-s",
-                h->status,
-                h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
-                h->time_trans,
-                h->content_recv, speed, h->url);
+    snprintf(value, sizeof(value),
+            "%-4d"     "|%-5d|%-5d|%-5d|%-5d|%-5d"    "|%-4d|%-5s|%-s",
+            h->status,
+
+            h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
+            h->time_trans,
+
+            h->content_recv, speed, h->url);
 
     pos = value;
     for (size_t i=0; i < sizeof(lens)/sizeof(lens[0]); ++i)

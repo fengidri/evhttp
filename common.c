@@ -128,13 +128,11 @@ int net_recv(int fd, char *buf, size_t len)
     return n;
 }
 
-int size_fmt(char *buf, size_t len, long long size)
+int size_fmt(char *buf, size_t len, double s)
 {
     size_t p = 0;
     char *ps = " KMGT";
-    double  s;
     int n;
-    s = size;
     while(1)
     {
         if (s >= 1024)

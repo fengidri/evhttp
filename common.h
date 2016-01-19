@@ -21,7 +21,7 @@
     (end.tv_usec - start.tv_usec)/1000)
 
 char *strnstr(const char *s1, const char *s2, size_t len);
-int size_fmt(char *buf, size_t len, long long size);
+int size_fmt(char *buf, size_t len, double size);
 
 int net_noblock(int fd, bool b);
 int net_recv(int fd, char *buf, size_t len);
