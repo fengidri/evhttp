@@ -78,6 +78,8 @@ struct config{
     long long          sum_status_200;
     long long          sum_status_other;
 
+    const char * method;
+
     const char dns[20];
 };
 

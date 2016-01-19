@@ -93,6 +93,7 @@ int arg_parser(int argc, char **argv)
             case 'x': config.parallel         = atoi(optarg); break;
             case 'n': config.total_limit      = atoi(optarg); break;
             case 'r': config.recycle          = optarg;       break;
+            case 'm': config.method           = optarg;       break;
             case 'H':
                       {
                           size_t l;

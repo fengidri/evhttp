@@ -27,6 +27,7 @@ struct config config = {
     .recycle_times = 1,
     .urls          = config._urls,
     .loglevel      = LOG_DEBUG,
+    .method        = "GET",
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -304,7 +305,7 @@ void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
 
 void send_request(aeEventLoop *el, int fd, void *priv, int mask)
 {
-#define request_fmt "GET %s HTTP/1.1\r\n" \
+#define request_fmt "%s %s HTTP/1.1\r\n" \
                     "Host: %s\r\n" \
                     "Content-Length: 0\r\n" \
                     "User-Agent: evhttp\r\n" \
@@ -315,7 +316,8 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     h->time_connect = update_time(h);
 
     l = sizeof(h->buf) - config.headers_n - 2;
-    n = snprintf(h->buf, l, request_fmt, h->url, h->remote->domain);
+    n = snprintf(h->buf, l, request_fmt,
+            config.method, h->url, h->remote->domain);
 
     if (n >= l)
     {
