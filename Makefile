@@ -1,5 +1,14 @@
-src=ae.c zmalloc.c url.c common.c evhttp.c main.c debug.c ev.c
-CFLAGS=-fno-omit-frame-pointer -fsanitize=address -g -O1  -rdynamic
-all:
-	gcc $(CFLAGS) $(src) -o evhttp
+CFLAGS += -fno-omit-frame-pointer -fsanitize=address -g -O1  -rdynamic
+CFLAGS += -I ev -I ae
+CFLAGS += -Lae -lae
+CFLAGS += -Lev -levhttp
 
+export CFLAGS
+
+evhttp:
+	make -C ae
+	make -C ev
+	gcc  main.c $(CFLAGS) -o evhttp
+
+clear:
+	find -name '*.o' | xargs rm -rf
