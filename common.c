@@ -132,7 +132,6 @@ int size_fmt(char *buf, size_t len, double s)
 {
     size_t p = 0;
     char *ps = " KMGT";
-    int n;
     while(1)
     {
         if (s >= 1024)
