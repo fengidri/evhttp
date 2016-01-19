@@ -13,9 +13,9 @@
 #include "url.h"
 #include "evhttp.h"
 
-int http_new();
 void http_destory(struct http *);
 void http_chunk_read(struct http *h, size_t offset);
+int httpsm(struct http *h, int mask);
 
 struct config config = {
     .remote.port   = 80,
@@ -92,37 +92,6 @@ int process_header(struct http *h)
     h->content_length = -1;
     h->chunked = false;
     return EV_OK;
-}
-
-
-
-int recv_header(int fd, struct http *h)
-{
-    int n;
-    while (1)
-    {
-        n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
-
-        if (n < 0)  return n;
-        if (n == 0){
-            logerr("Server close connection prematurely "
-                    "while reading header!!\n");
-            return EV_ERR;
-        }
-
-        h->buf_offset += n;
-
-        if (EV_OK == process_header(h))
-        {
-            return EV_OK;
-        }
-        if (h->buf_offset >= sizeof(h->buf))
-        {
-            logerr("Header Too big!");
-            return EV_ERR;
-        }
-    }
-    return EV_ERR;
 }
 
 int recv_no_chunked(int fd, struct http *h)
@@ -255,55 +224,59 @@ check:
 }
 
 
-void recv_response(aeEventLoop *el, int fd, void *priv, int mask)
+int recv_response(struct http *h)
 {
-    struct http *h;
     int (*handle)(int , struct http *);
-    int ret;
 
-    h = (struct http *)priv;
+    int t = update_time(h);
+    if (t > h->time_max_read) h->time_max_read = t;
 
-    if (h->read_header)
+    if (h->chunked)
+        handle = recv_is_chunked;
+    else
+        handle = recv_no_chunked;
+
+    return handle(h->fd, h);
+}
+
+int recv_header(struct http *h)
+{
+    int n;
+    if (0 == h->buf_offset)
     {
-        if (0 == h->buf_offset)
-        {
-            h->time_recv = update_time(h);
-            h->time_start_read = h->time_last;
-        }
-        ret = recv_header(fd, h);
-        if (EV_OK == ret)
-        {
-            recv_response(el, fd, priv, mask);
-            return;
-        }
+        h->time_recv = update_time(h);
+        h->time_start_read = h->time_last;
     }
-    else{
-        int t = update_time(h);
-        if (t > h->time_max_read) h->time_max_read = t;
-
-        if (h->chunked)
-            handle = recv_is_chunked;
-        else
-            handle = recv_no_chunked;
-
-        ret = handle(fd, h);
-    }
-
-    if (EV_AG == ret) return;
-
-    h->time_last = h->time_start_read;
-    h->time_trans = update_time(h);
-
-    if (EV_OK == ret)
+    while (1)
     {
-        print_http_info(h);
-    }
+        n = ev_recv(h->fd, h->buf + h->buf_offset,
+                sizeof(h->buf) - h->buf_offset);
 
-    http_destory(h);
+        if (n < 0)  return n;
+        if (n == 0){
+            logerr("Server close connection prematurely "
+                    "while reading header!!\n");
+            return EV_ERR;
+        }
+
+        h->buf_offset += n;
+
+        if (EV_OK == process_header(h))
+        {
+            return EV_OK;
+        }
+
+        if (h->buf_offset >= sizeof(h->buf))
+        {
+            logerr("Header Too big!");
+            return EV_ERR;
+        }
+    }
+    return EV_ERR;
 }
 
 
-void send_request(aeEventLoop *el, int fd, void *priv, int mask)
+int send_request(struct http *h)
 {
 #define request_fmt "%s %s HTTP/1.1\r\n" \
                     "Host: %s\r\n" \
@@ -311,7 +284,6 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
                     "User-Agent: evhttp\r\n" \
                     "Accept: */*\r\n"
     int n, l;
-    struct http *h = priv;
 
     h->time_connect = update_time(h);
 
@@ -322,8 +294,7 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     if (n >= l)
     {
         logerr("URL too long!!!!");
-        http_destory(h);
-        return;
+        return EV_ERR;
     }
 
     memcpy(h->buf + n, config.headers, config.headers_n);
@@ -338,76 +309,132 @@ void send_request(aeEventLoop *el, int fd, void *priv, int mask)
     logdebug("===========================================\n");
     logdebug("%.*s", n, h->buf);
 
-    n = send(fd, h->buf, n, 0);
+    n = send(h->fd, h->buf, n, 0);
     if (n < 0)
     {
-        http_destory(h);
-        return ;
+        logerr("Send Error");
+        return EV_ERR;
     }
-
-    aeDeleteFileEvent(el, fd, AE_WRITABLE);
-    aeCreateFileEvent(el, fd, AE_READABLE, recv_response, h);
-}
-
-int http_new()
-{
-    struct http *h;
-
-    h = malloc(sizeof(*h));
-    h->buf_offset  = 0;
-    h->eof         = 0;
-    h->read_header = true;
-    h->remote      = &h->_remote;
-    h->content_recv = 0;
-
-url:
-    if (!get_url(h))
-    {
-        free(h);
-        if (config.active <= 0)
-        {
-            aeStop(config.el);
-        }
-        return EV_OK;
-    }
-
-    update_time(h);
-    if (!h->remote->ip[0])
-    {
-        logdebug("resolve %s\n", h->remote->domain);
-        if (!net_resolve(h->remote->domain, h->remote->ip,
-                    sizeof(h->remote->ip)))
-        {
-            usleep(100000);
-            goto url;
-        }
-    }
-
-    h->time_dns = update_time(h);
-
-    logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
-    h->fd = net_connect(h->remote->ip, h->remote->port);
-
-    if (h->fd < 0){
-        usleep(100000);
-        goto url;
-    }
-
-    aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, send_request, h);
-    config.active += 1;
-
     return EV_OK;
 }
 
-void http_destory(struct http *h)
+void http_end(struct http *h)
 {
-    aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
-    aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
-    close(h->fd);
-    free(h);
+    h->time_last = h->time_start_read;
+    h->time_trans = update_time(h);
+    print_http_info(h);
 
-    config.active -= 1;
+    if (h->fd > 0)
+    {
+        aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
+        aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
+        close(h->fd);
+    }
+
     config.total += 1;
-
-    http_new();
 }
+
+void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
+{
+    struct http *h = priv;
+    int ret;
+    do{
+        ret = httpsm(h, mask);
+    }while(ret == EV_AG);
+}
+
+
+int httpsm(struct http *h, int mask)
+{
+    switch(h->next_state)
+    {
+        case HTTP_NEW:
+            h->next_state = HTTP_DNS;
+            if (!get_url(h))
+            {
+                free(h); // STOP
+                config.active -= 1;
+                if (config.active <= 0) aeStop(config.el);
+                return EV_ERR;
+            }
+            return EV_AG;
+
+        case HTTP_DNS:
+            update_time(h);
+            if (!h->remote->ip[0])
+            {
+                logdebug("resolve %s\n", h->remote->domain);
+                if (!net_resolve(h->remote->domain, h->remote->ip,
+                            sizeof(h->remote->ip)))
+                {
+                    logerr("reslove fail: %s\n", h->remote->domain);
+                    usleep(100000);
+                    h->next_state = HTTP_NEW;
+                    return EV_AG;
+                }
+            }
+            h->next_state = HTTP_CONNECT;
+            h->time_dns = update_time(h);
+            return EV_AG;
+
+        case HTTP_CONNECT:
+            logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
+            h->fd = net_connect(h->remote->ip, h->remote->port);
+
+            if (h->fd < 0){
+                usleep(100000);
+                h->next_state = HTTP_NEW;
+                return EV_AG;
+            }
+
+            h->next_state = HTTP_SEND_REQUEST;
+            aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, ev_handler, h);
+            aeCreateFileEvent(config.el, h->fd, AE_READABLE, ev_handler, h);
+            return EV_OK;
+
+
+        case HTTP_SEND_REQUEST:
+            h->next_state = HTTP_RECV_HEADER;
+            return send_request(h);
+
+
+        case HTTP_RECV_HEADER:
+            if (EV_OK == recv_header(h))
+            {
+                h->next_state = HTTP_RECV_BODY;
+                return EV_AG;
+            }
+            return EV_OK;
+
+        case HTTP_RECV_BODY:
+            if (EV_AG != recv_response(h))
+            {
+                h->next_state = HTTP_END;
+            }
+            return EV_OK;
+
+        case HTTP_END:
+            http_end(h);
+            h->next_state = HTTP_NEW;
+            return EV_AG;
+    }
+}
+
+void http_new()
+{
+    struct http *h;
+
+    h               = malloc(sizeof(*h));
+    h->buf_offset   = 0;
+    h->eof          = 0;
+    h->read_header  = true;
+    h->remote       = &h->_remote;
+    h->content_recv = 0;
+    h->fd           = -1;
+    h->next_state   = HTTP_NEW;
+
+    config.active += 1;
+    ev_handler(NULL, -1, h, 0);
+}
+
+

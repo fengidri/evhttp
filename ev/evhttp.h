@@ -35,15 +35,16 @@ enum loglevel{
     LOG_SUM,
 };
 
-//enum mode{
-//    MODE_NORMAL; // request url one by one
-//    MODE_REPEAT; // repeat request url one by one
-//    MODE_RANDOM; // request random  url
-//    MODE_RANDOM_RECYCLE_TIMES;     // repeat request random url
-//    MODE_RANDOM_RECYCLE_BYTES;     // repeat request random url
-//};
+enum http_state{
+    HTTP_NEW,
+    HTTP_DNS,
+    HTTP_CONNECT,
+    HTTP_SEND_REQUEST,
+    HTTP_RECV_HEADER,
+    HTTP_RECV_BODY,
+    HTTP_END,
+};
 
-// global config
 struct config{
     aeEventLoop *el;
     struct remote remote;
@@ -88,6 +89,7 @@ struct http{
     struct remote _remote;
     struct remote *remote;
 
+    enum http_state next_state;
     int fd;
     bool eof;
 
@@ -117,7 +119,7 @@ struct http{
     //float time_max_read;
 };
 
-int http_new();
+void http_new();
 extern struct config config;
 
 #include "ev.h"

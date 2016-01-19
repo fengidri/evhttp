@@ -5,10 +5,11 @@ CFLAGS += -Lev -levhttp
 
 export CFLAGS
 
-evhttp:
+evhttp: ev/libevhttp.a ae/libae.a
 	make -C ae
 	make -C ev
 	gcc  main.c $(CFLAGS) -o evhttp
 
 clear:
 	find -name '*.o' | xargs rm -rf
+	rm evhttp
