@@ -42,6 +42,17 @@ static inline int ev_recv(int fd, char *buf, size_t len)
     return n;
 }
 
+void http_reset(struct http *h)
+{
+    h->buf_offset   = 0;
+    h->eof          = 0;
+    h->read_header  = true;
+    h->remote       = &h->_remote;
+    h->content_recv = 0;
+    h->fd           = -1;
+    h->next_state   = HTTP_NEW;
+}
+
 
 int process_header(struct http *h)
 {
@@ -236,7 +247,12 @@ int recv_response(struct http *h)
     else
         handle = recv_no_chunked;
 
-    return handle(h->fd, h);
+    if (EV_AG != handle(h->fd, h))
+    {
+        h->next_state = HTTP_END;
+    }
+    return EV_OK;
+
 }
 
 int recv_header(struct http *h)
@@ -252,7 +268,9 @@ int recv_header(struct http *h)
         n = ev_recv(h->fd, h->buf + h->buf_offset,
                 sizeof(h->buf) - h->buf_offset);
 
-        if (n < 0)  return n;
+        if (EV_AG  == n) return EV_OK;
+        if (EV_ERR == n) return EV_ERR;
+
         if (n == 0){
             logerr("Server close connection prematurely "
                     "while reading header!!\n");
@@ -263,7 +281,8 @@ int recv_header(struct http *h)
 
         if (EV_OK == process_header(h))
         {
-            return EV_OK;
+            h->next_state = HTTP_RECV_BODY;
+            return EV_AG;
         }
 
         if (h->buf_offset >= sizeof(h->buf))
@@ -293,6 +312,7 @@ int send_request(struct http *h)
 
     if (n >= l)
     {
+        h->next_state = HTTP_END;
         logerr("URL too long!!!!");
         return EV_ERR;
     }
@@ -312,13 +332,15 @@ int send_request(struct http *h)
     n = send(h->fd, h->buf, n, 0);
     if (n < 0)
     {
+        h->next_state = HTTP_END;
         logerr("Send Error");
         return EV_ERR;
     }
+    h->next_state = HTTP_RECV_HEADER;
     return EV_OK;
 }
 
-void http_end(struct http *h)
+int http_end(struct http *h)
 {
     h->time_last = h->time_start_read;
     h->time_trans = update_time(h);
@@ -332,6 +354,9 @@ void http_end(struct http *h)
     }
 
     config.total += 1;
+    http_reset(h);
+
+    return EV_AG;
 }
 
 void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
@@ -393,45 +418,22 @@ int httpsm(struct http *h, int mask)
             return EV_OK;
 
 
-        case HTTP_SEND_REQUEST:
-            h->next_state = HTTP_RECV_HEADER;
-            return send_request(h);
-
-
-        case HTTP_RECV_HEADER:
-            if (EV_OK == recv_header(h))
-            {
-                h->next_state = HTTP_RECV_BODY;
-                return EV_AG;
-            }
-            return EV_OK;
-
-        case HTTP_RECV_BODY:
-            if (EV_AG != recv_response(h))
-            {
-                h->next_state = HTTP_END;
-            }
-            return EV_OK;
-
-        case HTTP_END:
-            http_end(h);
-            h->next_state = HTTP_NEW;
-            return EV_AG;
+        case HTTP_SEND_REQUEST: return send_request(h);
+        case HTTP_RECV_HEADER:  return recv_header(h);
+        case HTTP_RECV_BODY:    return recv_response(h);
+        case HTTP_END:          return http_end(h);
     }
 }
+
+
+
 
 void http_new()
 {
     struct http *h;
 
     h               = malloc(sizeof(*h));
-    h->buf_offset   = 0;
-    h->eof          = 0;
-    h->read_header  = true;
-    h->remote       = &h->_remote;
-    h->content_recv = 0;
-    h->fd           = -1;
-    h->next_state   = HTTP_NEW;
+    http_reset(h);
 
     config.active += 1;
     ev_handler(NULL, -1, h, 0);
