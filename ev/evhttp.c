@@ -402,6 +402,8 @@ int httpsm(struct http *h, int mask)
             h->time_dns = update_time(h);
             return EV_AG;
 
+        case HTTP_DNS_POST:
+
         case HTTP_CONNECT:
             logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
             h->fd = net_connect(h->remote->ip, h->remote->port);

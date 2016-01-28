@@ -78,7 +78,7 @@ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
     int op = eventLoop->events[fd].mask == AE_NONE ?
             EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
-    ee.events = 0;
+    ee.events = EPOLLET;
     mask |= eventLoop->events[fd].mask; /* Merge old events */
     if (mask & AE_READABLE) ee.events |= EPOLLIN;
     if (mask & AE_WRITABLE) ee.events |= EPOLLOUT;

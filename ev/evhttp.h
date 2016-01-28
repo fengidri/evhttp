@@ -38,6 +38,7 @@ enum loglevel{
 enum http_state{
     HTTP_NEW,
     HTTP_DNS,
+    HTTP_DNS_POST,
     HTTP_CONNECT,
     HTTP_SEND_REQUEST,
     HTTP_RECV_HEADER,
