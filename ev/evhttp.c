@@ -250,6 +250,7 @@ int recv_response(struct http *h)
     if (EV_AG != handle(h->fd, h))
     {
         h->next_state = HTTP_END;
+        return EV_AG;
     }
     return EV_OK;
 
