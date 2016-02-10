@@ -44,11 +44,10 @@ static inline int ev_recv(int fd, char *buf, size_t len)
 
 void http_reset(struct http *h)
 {
-    h->buf_offset   = 0;
-    h->eof          = 0;
+    memset(h, 0, sizeof(*h));
+
     h->read_header  = true;
     h->remote       = &h->_remote;
-    h->content_recv = 0;
     h->fd           = -1;
     h->next_state   = HTTP_NEW;
 }
@@ -444,7 +443,6 @@ void http_new()
     struct http *h;
 
     h = malloc(sizeof(*h));
-    memset(h, 0, sizeof(*h));
     http_reset(h);
 
     config.active += 1;
