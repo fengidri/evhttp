@@ -53,7 +53,7 @@ int arg_parser(int argc, char **argv)
         {
             if (config.urls_n >= sizeof(config._urls))
             {
-                logerr("Too many urls in command line.");
+                perr("Too many urls in command line.");
                 return EV_ERR;
             }
             config.urls[config.urls_n] = arg;
@@ -66,7 +66,7 @@ int arg_parser(int argc, char **argv)
         {
             case 's': config.sum   = true; continue;
             case '\0':
-                      logerr("arg: - : error\n");
+                      perr("arg: - : error\n");
                       return EV_ERR;
         }
 
@@ -74,7 +74,7 @@ int arg_parser(int argc, char **argv)
         else{
             ++i;
             if (i >= argc){
-                logerr("arg: %s need opt\n", arg);
+                perr("arg: %s need opt\n", arg);
                 return EV_ERR;
             }
             optarg = argv[i];
@@ -100,7 +100,7 @@ int arg_parser(int argc, char **argv)
                           l =  strlen(optarg);
                           if (l + 2 > sizeof(config.headers) - config.headers_n)
                           {
-                              logerr("Too many headers in command line.");
+                              perr("Too many headers in command line.");
                               return EV_ERR;
                           }
 
@@ -126,13 +126,13 @@ int config_init(int argc, char **argv)
     {
         if (!config.remote.domain[0] && !config.remote.ip[0])
         {
-            logerr("Please set domain(-d) or ip(-i) for random url!!\n");
+            perr("Please set domain(-d) or ip(-i) for random url!!\n");
             return EV_ERR;
         }
         if (!net_resolve(config.remote.domain, config.remote.ip,
                     sizeof(config.remote.ip)))
         {
-            logerr("Cannot resolve the add: %s\n", config.remote.domain);
+            perr("Cannot resolve the add: %s\n", config.remote.domain);
             return EV_ERR;
         }
     }
@@ -142,7 +142,7 @@ int config_init(int argc, char **argv)
         if (!net_resolve(config.remote.domain, config.remote.ip,
                     sizeof(config.remote.ip)))
         {
-            logerr("Cannot resolve the add: %s\n", config.remote.domain);
+            perr("Cannot resolve the add: %s\n", config.remote.domain);
             return EV_ERR;
         }
     }
@@ -170,7 +170,7 @@ int config_init(int argc, char **argv)
                       config.recycle_type = RECYCLE_BYTES;
                       break;
             default:
-                      logerr("%s connot unrecognized", config.recycle);
+                      perr("%s connot unrecognized", config.recycle);
                       return EV_ERR;
         }
     }

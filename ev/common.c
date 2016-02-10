@@ -65,7 +65,7 @@ bool net_resolve(const char *addr, char *buf, size_t size)
 
     if (NULL == hptr)
     {
-        logerr("gethostbyname error: %s\n", addr);
+        perr("gethostbyname error: %s\n", addr);
         return false;
     }
 

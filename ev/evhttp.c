@@ -118,7 +118,7 @@ check:
         else{
             if (h->eof)
             {
-                logerr("Server close connection prematurely!!\n");
+                logerr(h, "Server close connection prematurely!!\n");
                 return EV_ERR;
             }
         }
@@ -146,7 +146,7 @@ check:
  * return : show the date has been readed;
  */
 int chunk_read(char *buffer, size_t size, int *length, int *recved,
-        size_t *body)
+        size_t *body, char **err)
 {
     char *pos, *buf;
     size_t left, except;
@@ -175,7 +175,7 @@ int chunk_read(char *buffer, size_t size, int *length, int *recved,
             }
             if ('0' != *buf)
             {
-                logerr("Chunked Fmort Error!\n");
+                *err = "invalid chunked response!\n";
             }
             return pos - buffer + 4;
         }
@@ -204,8 +204,12 @@ void http_chunk_read(struct http *h, size_t offset)
 {
     int n;
     size_t nn = 0;
+    char *err = NULL;
     n = chunk_read(h->buf + offset, h->buf_offset - offset,
-            &h->chunk_length, &h->chunk_recv, &nn);
+            &h->chunk_length, &h->chunk_recv, &nn, &err);
+
+    if (err)
+        logerr(h, err);
 
     h->buf_offset = h->buf_offset - offset - n;
     h->content_recv += nn;
@@ -221,7 +225,7 @@ check:
     if (0 == h->chunk_length) return EV_OK;
     if (h->eof)
     {
-        logerr("Server close connection prematurely!!\n");
+        logerr(h, "Server close connection prematurely!!\n");
         return  EV_ERR;
     }
 
@@ -273,7 +277,7 @@ int recv_header(struct http *h)
         if (EV_ERR == n) return EV_ERR;
 
         if (n == 0){
-            logerr("Server close connection prematurely "
+            logerr(h, "Server close connection prematurely "
                     "while reading header!!\n");
             return EV_ERR;
         }
@@ -288,7 +292,7 @@ int recv_header(struct http *h)
 
         if (h->buf_offset >= sizeof(h->buf))
         {
-            logerr("Header Too big!\n");
+            logerr(h, "Header Too big!\n");
             return EV_ERR;
         }
     }
@@ -314,7 +318,7 @@ int send_request(struct http *h)
     if (n >= l)
     {
         h->next_state = HTTP_END;
-        logerr("URL too long!!!!\n");
+        logerr(h, "URL too long!!!!\n");
         return EV_ERR;
     }
 
@@ -334,7 +338,7 @@ int send_request(struct http *h)
     if (n < 0)
     {
         h->next_state = HTTP_END;
-        logerr("Send Error\n");
+        logerr(h, "Send Error\n");
         return EV_ERR;
     }
     h->next_state = HTTP_RECV_HEADER;
@@ -403,7 +407,7 @@ int httpsm(struct http *h, int mask)
                 if (!net_resolve(h->remote->domain, h->remote->ip,
                             sizeof(h->remote->ip)))
                 {
-                    logerr("reslove fail: %s\n", h->remote->domain);
+                    logerr(h, "reslove fail: %s\n", h->remote->domain);
                     usleep(100000);
                     h->next_state = HTTP_NEW;
                     return EV_AG;
@@ -445,7 +449,8 @@ void http_new()
 {
     struct http *h;
 
-    h               = malloc(sizeof(*h));
+    h = malloc(sizeof(*h));
+    memset(h, 0, sizeof(*h));
     http_reset(h);
 
     config.active += 1;

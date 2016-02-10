@@ -15,7 +15,8 @@
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#define logerr(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+#define perr(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+
 
 #define timeval_diff(start, end) ((end.tv_sec - start.tv_sec) * 1000 +\
     (end.tv_usec - start.tv_usec)/1000)
@@ -33,7 +34,6 @@ static inline void ev_strncpy(char *dest, const char *src, size_t size)
     strncpy(dest, src, size);
     dest[size - 1] = 0;
 }
-
 
 #endif
 

@@ -56,7 +56,7 @@ bool url_parser(struct url *u, const char *url)
     {
         u->port = atoi(p + 1);
         if (0 == u->port){
-            logerr("Port error: %s\n", url);
+            perr("Port error: %s\n", url);
             return false;
         }
         u->domain_n = p - u->domain;
@@ -130,7 +130,7 @@ bool select_url(struct http *h)
     config.index++;
 
     if (!url_parser(&u, url)){
-        logerr("URL parser error: %s\n", url);
+        perr("URL parser error: %s\n", url);
         return false;
     }
 
@@ -143,7 +143,7 @@ bool select_url(struct http *h)
 
     if (u.domain_n >= sizeof(h->remote->domain))
     {
-        logerr("%s: domain to long", url);
+        perr("%s: domain to long", url);
         return false;
     }
 
