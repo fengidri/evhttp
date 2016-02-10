@@ -5,10 +5,13 @@ CFLAGS += -Lev -levhttp
 
 export CFLAGS
 
-evhttp: ev/libevhttp.a ae/libae.a
+all:
 	make -C ae
 	make -C ev
 	gcc  main.c $(CFLAGS) -o evhttp
+
+install: evhttp
+	cp evhttp /usr/local/bin
 
 clear:
 	find -name '*.o' | xargs rm -rf
