@@ -92,6 +92,7 @@ struct http{
 
     enum http_state next_state;
     int fd;
+    int port;
     bool eof;
 
     char url[1024];

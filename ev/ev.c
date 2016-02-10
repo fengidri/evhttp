@@ -25,7 +25,7 @@ void logdebug(const char *fmt, ...)
 void print_http_info(struct http *h)
 {
     char value[1204];
-    int lens[8];
+    int lens[9];
     char speed[20] = {"-"};
     char *pos, *next;
 
@@ -34,9 +34,10 @@ void print_http_info(struct http *h)
                 (double)h->content_recv/h->time_trans * 1000);
 
     snprintf(value, sizeof(value),
-            "%-4d"     "|%-5d|%-5d|%-5d|%-5d|%-5d"    "|%-4d|%-5s|%-s",
+            "%-4d"     "|%-d|%-5d|%-5d|%-5d|%-5d|%-5d"    "|%-4d|%-5s|%-s",
             h->status,
 
+            h->port,
             h->time_dns, h->time_connect, h->time_recv, h->time_max_read,
             h->time_trans,
 
@@ -52,9 +53,9 @@ void print_http_info(struct http *h)
     }
 
     logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
-         *lens, "CODE", lens[1], "DNS",  lens[2], "CON",
-         lens[3], "RECV",   lens[4], "READ", lens[5], "TRANS", lens[6], "BODY",
-         lens[7], "Speed", "ULR");
+         *lens, "CODE", lens[1], "PORT", lens[2], "DNS",  lens[3], "CON",
+         lens[4], "RECV",   lens[5], "READ", lens[6], "TRANS", lens[7], "BODY",
+         lens[8], "Speed", "ULR");
 
     logdebug("%s\n", value);
 

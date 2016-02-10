@@ -118,7 +118,7 @@ check:
         else{
             if (h->eof)
             {
-                logerr("Server close connection prematurely!!");
+                logerr("Server close connection prematurely!!\n");
                 return EV_ERR;
             }
         }
@@ -221,7 +221,7 @@ check:
     if (0 == h->chunk_length) return EV_OK;
     if (h->eof)
     {
-        logerr("Server close connection prematurely!!");
+        logerr("Server close connection prematurely!!\n");
         return  EV_ERR;
     }
 
@@ -288,7 +288,7 @@ int recv_header(struct http *h)
 
         if (h->buf_offset >= sizeof(h->buf))
         {
-            logerr("Header Too big!");
+            logerr("Header Too big!\n");
             return EV_ERR;
         }
     }
@@ -314,7 +314,7 @@ int send_request(struct http *h)
     if (n >= l)
     {
         h->next_state = HTTP_END;
-        logerr("URL too long!!!!");
+        logerr("URL too long!!!!\n");
         return EV_ERR;
     }
 
@@ -334,10 +334,20 @@ int send_request(struct http *h)
     if (n < 0)
     {
         h->next_state = HTTP_END;
-        logerr("Send Error");
+        logerr("Send Error\n");
         return EV_ERR;
     }
     h->next_state = HTTP_RECV_HEADER;
+
+#include <sys/socket.h>
+#include <arpa/inet.h>
+    // get local port
+    struct sockaddr_in c;
+    socklen_t cLen = sizeof(c);
+
+    getsockname(h->fd, (struct sockaddr *)&c, &cLen);
+    h->port = ntohs(c.sin_port);
+
     return EV_OK;
 }
 
