@@ -128,6 +128,15 @@ int net_recv(int fd, char *buf, size_t len)
     return n;
 }
 
+int net_client_port(int fd)
+{
+    struct sockaddr_in c;
+    socklen_t cLen = sizeof(c);
+
+    getsockname(fd, (struct sockaddr *)&c, &cLen);
+    return ntohs(c.sin_port);
+}
+
 int size_fmt(char *buf, size_t len, double s)
 {
     size_t p = 0;

@@ -343,14 +343,8 @@ int send_request(struct http *h)
     }
     h->next_state = HTTP_RECV_HEADER;
 
-#include <sys/socket.h>
-#include <arpa/inet.h>
     // get local port
-    struct sockaddr_in c;
-    socklen_t cLen = sizeof(c);
-
-    getsockname(h->fd, (struct sockaddr *)&c, &cLen);
-    h->port = ntohs(c.sin_port);
+    h->port = net_client_port(h->fd);
 
     return EV_OK;
 }
