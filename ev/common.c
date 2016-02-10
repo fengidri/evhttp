@@ -137,6 +137,29 @@ int net_client_port(int fd)
     return ntohs(c.sin_port);
 }
 
+int net_info(int fd, bool local, int *port, char **ip, size_t size)
+{
+    struct sockaddr_in c;
+    int rc;
+
+    socklen_t cLen = sizeof(c);
+
+    if (local)
+        rc = getsockname(fd, (struct sockaddr *)&c, &cLen);
+    else
+        rc = getpeername(fd, (struct sockaddr *)&c, &cLen);
+
+    if (-1 == rc) return -1;
+
+    if (port)
+        *port = ntohs(c.sin_port);
+
+    //if (ip)
+    //    ip =
+
+    return 0;
+}
+
 int size_fmt(char *buf, size_t len, double s)
 {
     size_t p = 0;
