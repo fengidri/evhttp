@@ -129,21 +129,19 @@ int config_init(int argc, char **argv)
             perr("Please set domain(-d) or ip(-i) for random url!!\n");
             return EV_ERR;
         }
-        if (!net_resolve(config.remote.domain, config.remote.ip,
-                    sizeof(config.remote.ip)))
+        if (!config.remote.ip[0])
         {
-            perr("Cannot resolve the add: %s\n", config.remote.domain);
-            return EV_ERR;
+            if (!net_resolve(config.remote.domain, config.remote.ip,
+                        sizeof(config.remote.ip)))
+            {
+                perr("Cannot resolve the add: %s\n", config.remote.domain);
+                return EV_ERR;
+            }
         }
-    }
-
-    if (0 == config.remote.ip[0] && 0 == config.urls_n)
-    {
-        if (!net_resolve(config.remote.domain, config.remote.ip,
-                    sizeof(config.remote.ip)))
+        if (!config.remote.domain)
         {
-            perr("Cannot resolve the add: %s\n", config.remote.domain);
-            return EV_ERR;
+            ev_strncpy(config.remote.domain, config.remote.ip,
+                    sizeof(config.remote.ip));
         }
     }
 
