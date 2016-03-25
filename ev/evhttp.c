@@ -29,7 +29,6 @@ struct config config = {
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
     .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H | PRINT_TIME,
-    .http_index    = 0,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -47,13 +46,14 @@ static inline int ev_recv(int fd, char *buf, size_t len)
 void http_reset(struct http *h)
 {
     memset(h, 0, sizeof(*h));
-    config.http_index += 1;
+    config.total += 1;
 
     h->read_header  = true;
     h->remote       = &h->_remote;
     h->fd           = -1;
     h->next_state   = HTTP_NEW;
-    h->index        = config.http_index;
+    h->index        = config.total;
+
 }
 
 
@@ -369,7 +369,6 @@ int http_end(struct http *h)
         close(h->fd);
     }
 
-    config.total += 1;
     http_reset(h);
 
     return EV_AG;

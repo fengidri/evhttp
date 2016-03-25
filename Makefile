@@ -1,7 +1,9 @@
-CFLAGS += -fno-omit-frame-pointer -fsanitize=address -g -O1  -rdynamic
+CFLAGS += -fno-omit-frame-pointer -g -O1  -rdynamic
 CFLAGS += -I ev -I ae
 CFLAGS += -Lae -lae
 CFLAGS += -Lev -levhttp
+
+#CFLAGS += -fsanitize=address
 
 export CFLAGS
 

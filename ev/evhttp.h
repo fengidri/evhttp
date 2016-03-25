@@ -80,7 +80,6 @@ struct config{
 
     size_t      index;
     const char *flag;
-     unsigned long long    http_index; // for http
 
     bool               sum;
     int                sum_timer_id;
