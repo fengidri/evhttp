@@ -49,8 +49,10 @@ enum http_state{
 #define PRINT_SUM 0
 #define PRINT_REQUEST 1
 #define PRINT_RESPONSE 1 << 1
-#define PRINT_TIME_H 1 << 2
-#define PRINT_TIME 1 << 3
+#define PRINT_TIME_H   1 << 2
+#define PRINT_TIME     1 << 3
+#define PRINT_DNS      1 << 4
+#define PRINT_CON      1 << 5
 
 struct config{
     aeEventLoop *el;

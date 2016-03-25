@@ -401,7 +401,8 @@ int httpsm(struct http *h, int mask)
             update_time(h);
             if (!h->remote->ip[0])
             {
-                logdebug("resolve %s\n", h->remote->domain);
+                if (config.print & PRINT_DNS)
+                    logdebug("resolve %s\n", h->remote->domain);
                 if (!net_resolve(h->remote->domain, h->remote->ip,
                             sizeof(h->remote->ip)))
                 {
@@ -418,7 +419,9 @@ int httpsm(struct http *h, int mask)
         case HTTP_DNS_POST:
 
         case HTTP_CONNECT:
-            logdebug("Connecting to %s:%d....\n", h->remote->ip, h->remote->port);
+            if (config.print & PRINT_CON)
+                logdebug("Connecting to %s:%d....\n",
+                        h->remote->ip, h->remote->port);
             h->fd = net_connect(h->remote->ip, h->remote->port);
 
             if (h->fd < 0){
