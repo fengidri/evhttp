@@ -149,6 +149,10 @@ int config_init(int argc, char **argv)
 
     // total
     if (0 == config.total_limit) config.total_limit = -1;
+    if (1 != config.total_limit)
+    {
+        config.print = PRINT_TIME;
+    }
 
     // recycle
     if (config.recycle)
@@ -179,7 +183,6 @@ int config_init(int argc, char **argv)
 
     if (config.sum)
     {
-        config.loglevel = LOG_ERROR;
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
     return EV_OK;

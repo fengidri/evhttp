@@ -52,12 +52,15 @@ void print_http_info(struct http *h)
         pos = next + 1;
     }
 
-    logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
-         *lens, "CODE", lens[1], "PORT", lens[2], "DNS",  lens[3], "CON",
-         lens[4], "RECV",   lens[5], "READ", lens[6], "TRANS", lens[7], "BODY",
-         lens[8], "Speed", "ULR");
 
-    logdebug("%s\n", value);
+    if (config.print & PRINT_TIME_H)
+        logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
+                *lens, "CODE", lens[1], "PORT", lens[2], "DNS",  lens[3], "CON",
+                lens[4], "RECV",   lens[5], "READ", lens[6], "TRANS", lens[7], "BODY",
+                lens[8], "Speed", "ULR");
+
+    if (config.print & PRINT_TIME)
+        logdebug("%s\n", value);
 
 }
 

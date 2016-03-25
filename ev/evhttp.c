@@ -28,6 +28,7 @@ struct config config = {
     .urls          = config._urls,
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
+    .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H | PRINT_TIME,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -72,7 +73,8 @@ int process_header(struct http *h)
     else
         config.sum_status_other++;
 
-    logdebug("%.*s", length, h->buf);
+    if (config.print & PRINT_RESPONSE)
+        logdebug("%.*s", length, h->buf);
 
     int i = 0;
     while(i<length)
@@ -330,8 +332,11 @@ int send_request(struct http *h)
     ++n;
 
 
-    logdebug("===========================================\n");
-    logdebug("%.*s", n, h->buf);
+    if (config.print & PRINT_RESPONSE)
+    {
+        logdebug("===========================================\n");
+        logdebug("%.*s", n, h->buf);
+    }
 
     n = send(h->fd, h->buf, n, 0);
     if (n < 0)

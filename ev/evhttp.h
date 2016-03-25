@@ -46,6 +46,12 @@ enum http_state{
     HTTP_END,
 };
 
+#define PRINT_SUM 0
+#define PRINT_REQUEST 1
+#define PRINT_RESPONSE 1 << 1
+#define PRINT_TIME_H 1 << 2
+#define PRINT_TIME 1 << 3
+
 struct config{
     aeEventLoop *el;
     struct remote remote;
@@ -83,7 +89,9 @@ struct config{
     const char * method;
 
     const char dns[20];
+    int print;
 };
+
 
 // http struct for every connect and request
 struct http{
