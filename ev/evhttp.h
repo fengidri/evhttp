@@ -78,8 +78,9 @@ struct config{
     int         recycle_type;
     long long   recycle_limit;
 
-    size_t      index; // for url
+    size_t      index;
     const char *flag;
+     unsigned long long    http_index; // for http
 
     bool               sum;
     int                sum_timer_id;
@@ -97,6 +98,7 @@ struct config{
 
 // http struct for every connect and request
 struct http{
+   unsigned long long index;
     struct remote _remote;
     struct remote *remote;
 
