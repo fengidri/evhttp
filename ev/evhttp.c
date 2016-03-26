@@ -247,8 +247,7 @@ int recv_response(struct http *h)
 {
     int (*handle)(int , struct http *);
 
-    int t = update_time(h);
-    if (t > h->time_max_read) h->time_max_read = t;
+    update_time(h, HTTP_RECV_BODY);
 
     if (h->chunked)
         handle = recv_is_chunked;
@@ -269,8 +268,7 @@ int recv_header(struct http *h)
     int n;
     if (0 == h->buf_offset)
     {
-        h->time_recv = update_time(h);
-        h->time_start_read = h->time_last;
+        update_time(h, HTTP_RECV_HEADER);
     }
     while (1)
     {
@@ -313,8 +311,6 @@ int send_request(struct http *h)
                     "Accept: */*\r\n"
     int n, l;
 
-    h->time_connect = update_time(h);
-
     l = sizeof(h->buf) - config.headers_n - 2;
     n = snprintf(h->buf, l, request_fmt,
             config.method, h->url, h->remote->domain);
@@ -334,13 +330,6 @@ int send_request(struct http *h)
     h->buf[n] = '\n';
     ++n;
 
-
-    if (config.print & PRINT_RESPONSE)
-    {
-        logdebug("===========================================\n");
-        logdebug("%.*s", n, h->buf);
-    }
-
     n = send(h->fd, h->buf, n, 0);
     if (n < 0)
     {
@@ -348,6 +337,15 @@ int send_request(struct http *h)
         logerr(h, "Send Error\n");
         return EV_ERR;
     }
+
+    update_time(h, HTTP_SEND_REQUEST);
+
+    if (config.print & PRINT_RESPONSE)
+    {
+        logdebug("===========================================\n");
+        logdebug("%.*s", n, h->buf);
+    }
+
     h->next_state = HTTP_RECV_HEADER;
 
     // get local port
@@ -358,8 +356,7 @@ int send_request(struct http *h)
 
 int http_end(struct http *h)
 {
-    h->time_last = h->time_start_read;
-    h->time_trans = update_time(h);
+    update_time(h, HTTP_END);
     print_http_info(h);
 
     if (h->fd > 0)
@@ -389,6 +386,7 @@ int httpsm(struct http *h, int mask)
     switch(h->next_state)
     {
         case HTTP_NEW:
+            update_time(h, HTTP_NEW);
             h->next_state = HTTP_DNS;
             if (!get_url(h))
             {
@@ -400,7 +398,6 @@ int httpsm(struct http *h, int mask)
             return EV_AG;
 
         case HTTP_DNS:
-            update_time(h);
             if (!h->remote->ip[0])
             {
                 if (config.print & PRINT_DNS)
@@ -415,10 +412,10 @@ int httpsm(struct http *h, int mask)
                 }
             }
             h->next_state = HTTP_CONNECT;
-            h->time_dns = update_time(h);
             return EV_AG;
 
         case HTTP_DNS_POST:
+            update_time(h, HTTP_DNS_POST);
 
         case HTTP_CONNECT:
             if (config.print & PRINT_CON)
@@ -443,6 +440,7 @@ int httpsm(struct http *h, int mask)
         case HTTP_RECV_BODY:    return recv_response(h);
         case HTTP_END:          return http_end(h);
     }
+    return EV_OK;
 }
 
 

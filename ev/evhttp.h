@@ -123,12 +123,14 @@ struct http{
 
     struct timeval time_last;
     struct timeval time_start_read;
+    struct timeval time_send_request;
 
     int time_dns;
     int time_connect;
-    int time_recv;
+    int time_response;
     int time_trans;
     int time_max_read;
+    int time_total; // from send request to end
     //float time_max_read;
 };
 

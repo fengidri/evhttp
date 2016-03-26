@@ -31,18 +31,26 @@ void print_http_info(struct http *h)
 
     if (h->time_trans)
         size_fmt(speed, sizeof(speed),
-                (double)h->content_recv/h->time_trans * 1000);
+                (double)h->content_recv/h->time_total * 1000);
+    if (config.print & PRINT_TIME_H)
+        logdebug("DNS CON RES MAXREAD TRANS TOTAL\n");
 
-    snprintf(value, sizeof(value),
-            "%llu: %-4d %-d D:%d.%d C:%d.%d F:%d.%d W:%d.%d R:%d.%d T:%-4d %-5s/s %-s",
-            h->index, h->status, h->port,
+    if (config.print & PRINT_TIME)
+    {
+        logdebug("%llu %-d %-d %-4d %-5s/s ",
+                h->index, h->status, h->port,
+                h->content_recv, speed);
+        logdebug("%d.%d %d.%d %d.%d %d.%d %d.%d %d.%d\n",
             h->time_dns/1000,      h->time_dns      % 1000,
             h->time_connect/1000,  h->time_connect  % 1000,
-            h->time_recv/1000,     h->time_recv     % 1000,
+            h->time_response/1000, h->time_response % 1000,
             h->time_max_read/1000, h->time_max_read % 1000,
             h->time_trans/1000,    h->time_trans    % 1000,
+            h->time_total/1000,    h->time_total    % 1000);
 
-            h->content_recv, speed, h->url);
+    }
+
+
 
 //#pos = value;
 //    for (size_t i=0; i < sizeof(lens)/sizeof(lens[0]); ++i)
@@ -58,29 +66,60 @@ void print_http_info(struct http *h)
 //    }
 //
 //
-//    if (config.print & PRINT_TIME_H)
 //        logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
 //                lens[0], "INDEX",
 //                lens[1], "CODE", lens[2], "PORT", lens[3], "DNS",  lens[4], "CON",
 //                lens[5], "RECV",   lens[6], "READ", lens[7], "TRANS", lens[8], "BODY",
 //                lens[9], "Speed", "ULR");
 
-    if (config.print & PRINT_TIME)
-        logdebug("%s\n", value);
 
 }
 
-int update_time(struct http *h)
+void update_time(struct http *h, enum http_state state)
 {
     struct timeval now;
     int t;
 
     gettimeofday(&now, NULL);
 
-    t = timeval_diff(h->time_last, now);
-    h->time_last = now;
+    switch (state)
+    {
+        case HTTP_NEW: // just init time_last
+            h->time_last = now;
+            break;
 
-    return t;
+        case HTTP_DNS_POST:
+            h->time_dns = timeval_diff(h->time_last, now);
+            h->time_last = now;
+            break;
+
+        case HTTP_SEND_REQUEST:
+            h->time_connect = timeval_diff(h->time_last, now);
+            h->time_send_request = now;
+            h->time_last = now;
+            break;
+
+        case HTTP_RECV_HEADER:
+            h->time_response = timeval_diff(h->time_last, now);
+            h->time_last = now;
+            if (0 == h->time_start_read.tv_sec && \
+                    0 == h->time_start_read.tv_usec)
+                h->time_start_read = now;
+            break;
+
+        case HTTP_RECV_BODY:
+            t = timeval_diff(h->time_last, now);
+            if (t > h->time_max_read) h->time_max_read = t;
+            break;
+
+        case HTTP_END:
+            h->time_trans = timeval_diff(h->time_start_read, now);
+            h->time_total = timeval_diff(h->time_send_request, now);
+            break;
+
+        default:
+            ;;
+    }
 }
 
 

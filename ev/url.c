@@ -68,7 +68,7 @@ static bool check_limit()
 {
     if (config.total_limit > 0)
     {
-        if (config.total >=  config.total_limit)
+        if (config.total >  config.total_limit)
         {
             return true;
         }
