@@ -120,6 +120,7 @@ void update_time(struct http *h, enum http_state state)
                 h->time_max_read = t;
                 h->time_max_read_n = h->body_read_times;
             }
+            h->time_last = now;
             break;
 
         case HTTP_END:
