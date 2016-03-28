@@ -189,6 +189,10 @@ int config_init(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+    struct timeval start, now;
+    int t;
+    gettimeofday(&start, NULL);
+
     if (EV_OK != config_init(argc, argv)) return -1;
 
     if (!config.urls_n)
@@ -206,4 +210,12 @@ int main(int argc, char **argv)
     }
 
     aeMain(config.el);
+
+
+    if (config.total > 2)
+    {
+        gettimeofday(&now, NULL);
+        t = timeval_diff(start, now);
+        printf("Time Total: %d.%.3d\n", t/1000, t%1000);
+    }
 }

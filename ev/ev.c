@@ -37,16 +37,22 @@ void print_http_info(struct http *h)
 
     if (config.print & PRINT_TIME)
     {
-        logdebug("%llu %-d %-d %-4d %-5s/s ",
+        logdebug("%llu %d %d %4d %5s/s ",
                 h->index, h->status, h->port,
                 h->content_recv, speed);
-        logdebug("%d.%d %d.%d %d.%d %d.%d %d.%d %d.%d\n",
+        logdebug("%d.%.3d %d.%.3d %d.%.3d %d.%.3d | %d.%.3d | %d.%.3d %d %d %s\n",
             h->time_dns/1000,      h->time_dns      % 1000,
             h->time_connect/1000,  h->time_connect  % 1000,
             h->time_response/1000, h->time_response % 1000,
-            h->time_max_read/1000, h->time_max_read % 1000,
             h->time_trans/1000,    h->time_trans    % 1000,
-            h->time_total/1000,    h->time_total    % 1000);
+            h->time_total/1000,    h->time_total    % 1000,
+            h->time_max_read/1000, h->time_max_read % 1000,
+            h->time_max_read_n,
+            h->body_read_times,
+            h->url
+            );
+
+
 
     }
 
@@ -108,8 +114,12 @@ void update_time(struct http *h, enum http_state state)
             break;
 
         case HTTP_RECV_BODY:
+            h->body_read_times += 1;
             t = timeval_diff(h->time_last, now);
-            if (t > h->time_max_read) h->time_max_read = t;
+            if (t > h->time_max_read) {
+                h->time_max_read = t;
+                h->time_max_read_n = h->body_read_times;
+            }
             break;
 
         case HTTP_END:

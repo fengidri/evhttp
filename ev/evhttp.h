@@ -54,6 +54,7 @@ enum http_state{
 #define PRINT_TIME     1 << 3
 #define PRINT_DNS      1 << 4
 #define PRINT_CON      1 << 5
+#define PRINT_BAR      1 << 6
 
 struct config{
     aeEventLoop *el;
@@ -122,6 +123,9 @@ struct http{
     int content_length;
     int content_recv;
 
+    int body_read_times;
+    int time_max_read_n;
+
     struct timeval time_last;
     struct timeval time_start_read;
     struct timeval time_send_request;
@@ -129,6 +133,7 @@ struct http{
     int time_dns;
     int time_connect;
     int time_response;
+    int time_body;
     int time_trans;
     int time_max_read;
     int time_total; // from send request to end

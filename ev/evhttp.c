@@ -29,7 +29,7 @@ struct config config = {
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
     .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H \
-                     | PRINT_TIME | PRINT_CON | PRINT_DNS,
+                     | PRINT_TIME | PRINT_CON | PRINT_DNS | PRINT_BAR,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -260,6 +260,9 @@ int recv_response(struct http *h)
         h->next_state = HTTP_END;
         return EV_AG;
     }
+
+    if (config.print & PRINT_BAR)
+        logdebug("\rRecv: %d ", h->content_recv);
     return EV_OK;
 
 }
