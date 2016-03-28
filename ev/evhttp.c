@@ -435,7 +435,7 @@ int httpsm(struct http *h, int mask)
             aeCreateFileEvent(config.el, h->fd, AE_READABLE, ev_handler, h);
             return EV_OK;
 
-        case HTTP_CONECT_POST:
+        case HTTP_CONNECT_POST:
             h->next_state = HTTP_SEND_REQUEST;
             return EV_AG;
 
