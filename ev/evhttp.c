@@ -28,7 +28,8 @@ struct config config = {
     .urls          = config._urls,
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
-    .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H | PRINT_TIME,
+    .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H \
+                     | PRINT_TIME | PRINT_CON | PRINT_DNS,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -424,15 +425,19 @@ int httpsm(struct http *h, int mask)
             h->fd = net_connect(h->remote->ip, h->remote->port);
 
             if (h->fd < 0){
-                usleep(100000);
-                h->next_state = HTTP_NEW;
+                //usleep(100000);
+                h->next_state = HTTP_END;
                 return EV_AG;
             }
 
-            h->next_state = HTTP_SEND_REQUEST;
+            h->next_state = HTTP_CONNECT_POST;
             aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, ev_handler, h);
             aeCreateFileEvent(config.el, h->fd, AE_READABLE, ev_handler, h);
             return EV_OK;
+
+        case HTTP_CONECT_POST:
+            h->next_state = HTTP_SEND_REQUEST;
+            return EV_AG;
 
 
         case HTTP_SEND_REQUEST: return send_request(h);
