@@ -30,7 +30,7 @@ struct config config = {
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
     .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H \
-                     | PRINT_TIME | PRINT_CON | PRINT_DNS | PRINT_BAR,
+                     | PRINT_TIME | PRINT_CON | PRINT_DNS,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)

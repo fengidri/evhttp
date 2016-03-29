@@ -48,7 +48,7 @@ void print_http_info(struct http *h)
         logdebug("%llu %d %d %4d %5s/s ",
                 h->index, h->header_res.status, h->port,
                 h->content_recv, speed);
-        logdebug("%d.%.3d %d.%.3d %d.%.3d %d.%.3d | %d.%.3d | %d.%.3d %d %d %s via: %*s\n",
+        logdebug("%d.%.3d %d.%.3d %d.%.3d %d.%.3d | %d.%.3d | %d.%.3d %d %d %s via: %.*s\n",
             h->time_dns/1000,      h->time_dns      % 1000,
             h->time_connect/1000,  h->time_connect  % 1000,
             h->time_response/1000, h->time_response % 1000,
