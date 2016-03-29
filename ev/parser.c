@@ -12,6 +12,20 @@
 
 #include "parser.h"
 
+char *nskipspace(char *s, int n)
+{
+    char *ss;
+    ss = s;
+    while (ss - s < n)
+    {
+        if (*ss == ' ')
+            ++ss;
+        else
+            return ss;
+    }
+    return NULL;
+}
+
 int parser_get_http_field_value(struct http_response_header *res,
         const char *target, size_t target_n, char **tvalue, size_t *tvalue_n)
 {
@@ -38,6 +52,14 @@ int parser_get_http_field_value(struct http_response_header *res,
             field_n =  t - field;
             value = t + 1;
             value_n = header_e - value;
+
+            value = nskipspace(value, value_n);
+            if (value)
+                value_n = header_e - value;
+            else{
+                value = "";
+                value_n = 0;
+            }
         }
         else{
             field_n = header_n;

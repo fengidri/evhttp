@@ -1,10 +1,10 @@
-CFLAGS += -fno-omit-frame-pointer -g -O1  -rdynamic
+CFLAGS += -fno-omit-frame-pointer -g -rdynamic
 CFLAGS += -I ev -I ae
 CFLAGS += -Lae -lae
 CFLAGS += -Lev -levhttp
 
 ifdef DEV
-CFLAGS += -fsanitize=address
+CFLAGS += -fsanitize=address -O0
 endif
 
 export CFLAGS
