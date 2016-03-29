@@ -14,7 +14,7 @@
 #include "evhttp.h"
 
 void http_destory(struct http *);
-void http_chunk_read(struct http *h, size_t offset);
+void http_chunk_read(struct http *h, char *buf, size_t size);
 int httpsm(struct http *h, int mask);
 
 struct config config = {
@@ -49,7 +49,6 @@ void http_reset(struct http *h)
     memset(h, 0, sizeof(*h));
     config.total += 1;
 
-    h->read_header  = true;
     h->remote       = &h->_remote;
     h->fd           = -1;
     h->next_state   = HTTP_NEW;
@@ -57,56 +56,108 @@ void http_reset(struct http *h)
 
 }
 
+int parser_get_http_field_value(struct http_response_header *res,
+        const char *target, size_t target_n, char **tvalue, size_t *tvalue_n)
+{
+    char *t;
+
+    char *header_e; // pos of \r\n;   //header == [field]:[value][\r\n]
+    size_t header_n; // sizeof ([field]:[value])
+    char *field;
+    size_t field_n;
+    char *value;
+    size_t value_n;
+
+    field = res->fields;
+    while (1)
+    {
+        header_e = strstr(field, "\r\n");
+        header_n = header_e - field;
+        if (0 == header_n)
+            break;
+
+        t = strnstr(field, ":", header_n);
+        if (t)
+        {
+            field_n =  t - field;
+            value = t + 1;
+            value_n = header_e - value;
+        }
+        else{
+            field_n = header_n;
+            value = "";
+            value_n = 0;
+        }
+
+        if (field_n == target_n)
+        {
+            if (0 == strncasecmp(target, field, field_n))
+            {
+                *tvalue = value;
+                *tvalue_n = value_n;
+                return 0;
+            }
+        }
+        field = header_e + 2;
+    }
+    return -1;
+}
+
 
 int process_header(struct http *h)
 {
     char *pos;
-    int length = 0;
+    struct http_response_header *res;
+    res = &h->header_res;
 
-    pos = strnstr(h->buf, "\r\n\r\n", h->buf_offset);
+
+    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
     if (!pos)
         return EV_AG;
-    h->read_header = false;
 
-    length = pos - h->buf + 4;
-    h->status = atoi(h->buf + 9);
-    if (200 == h->status)
+    res->length = pos - res->buf + 4; // header length
+
+    pos = strnstr(res->buf, "\r\n", res->length);
+    if (*(pos + 1) == '\r')
     {
-        config.sum_status_200++;
+        //logerr("error response header.\n");
+        return EV_ERR;
     }
-    else
-        config.sum_status_other++;
 
     if (config.print & PRINT_RESPONSE)
-        logdebug("%.*s", length, h->buf);
+        logdebug("%.*s", res->length, res->buf);
 
-    int i = 0;
-    while(i<length)
-    {
-        h->buf[i] = tolower(h->buf[i]);
-        i++;
-    }
+    res->response_line = res->buf;
+    res->response_line_n = pos - res->buf;
 
-    pos = strnstr(h->buf, "content-length:", length);
-    if (pos)
+    res->fields = pos + 2;
+
+    res->status = atoi(res->response_line + 9);
+
+
+    char *value;
+    size_t value_n;
+    if (0 == parser_get_http_field_value(res, "content-length", 14, &value, &value_n))
     {
-        h->content_recv = h->buf_offset - length;
-        h->content_length = atoi(pos + 15);
-        h->chunked = false;
+        res->chunked = false;
+        res->content_length = atoi(value);
+
+        h->content_recv = res->buf_offset - res->length;
         return EV_OK;
     }
 
-    pos = strnstr(h->buf, "transfer-encoding:", length);
-    if (pos)
+    if (0 == parser_get_http_field_value(res, "transfer-encoding", 17, &value, &value_n))
     {
         h->chunk_length = -1;
         h->chunk_recv = 0;
-        http_chunk_read(h, length);
-        h->chunked = true;
+
+        res->chunked = true;
+        http_chunk_read(h, res->buf + res->length, res->buf_offset - res->length);
         return EV_OK;
     }
-    h->content_length = -1;
-    h->chunked = false;
+
+    res->content_length = -1;
+    res->chunked = false;
     return EV_OK;
 }
 
@@ -114,9 +165,9 @@ int recv_no_chunked(int fd, struct http *h)
 {
     int n;
 check:
-    if (h->content_length > -1)
+    if (h->header_res.content_length >= 0)
     {
-        if (h->content_recv >= h->content_length)
+        if (h->content_recv >= h->header_res.content_length)
         {
             return EV_OK;
         }
@@ -205,22 +256,22 @@ read:
     }
 }
 
-void http_chunk_read(struct http *h, size_t offset)
+void http_chunk_read(struct http *h, char *buf, size_t size)
 {
     int n;
     size_t nn = 0;
     char *err = NULL;
-    n = chunk_read(h->buf + offset, h->buf_offset - offset,
+    n = chunk_read(buf, size,
             &h->chunk_length, &h->chunk_recv, &nn, &err);
 
     if (err)
         logerr(h, err);
 
-    h->buf_offset = h->buf_offset - offset - n;
+    h->buf_offset = size - n;
     h->content_recv += nn;
 
     if (h->buf_offset > 0)
-        memmove(h->buf, h->buf + offset + n, h->buf_offset);
+        memmove(h->buf, buf + n, h->buf_offset);
 }
 
 int recv_is_chunked(int fd, struct http *h)
@@ -239,7 +290,7 @@ check:
     if (n == 0) h->eof = true;
     h->buf_offset += n;
 
-    http_chunk_read(h, 0);
+    http_chunk_read(h, h->buf, h->buf_offset);
     goto check;
 }
 
@@ -250,7 +301,7 @@ int recv_response(struct http *h)
 
     update_time(h, HTTP_RECV_BODY);
 
-    if (h->chunked)
+    if (h->header_res.chunked)
         handle = recv_is_chunked;
     else
         handle = recv_no_chunked;
@@ -270,14 +321,17 @@ int recv_response(struct http *h)
 int recv_header(struct http *h)
 {
     int n;
-    if (0 == h->buf_offset)
+    struct http_response_header *res;
+    res = &h->header_res;
+
+    if (0 == res->buf_offset)
     {
         update_time(h, HTTP_RECV_HEADER);
     }
     while (1)
     {
-        n = ev_recv(h->fd, h->buf + h->buf_offset,
-                sizeof(h->buf) - h->buf_offset);
+        n = ev_recv(h->fd, res->buf + res->buf_offset,
+                sizeof(res->buf) - res->buf_offset);
 
         if (EV_AG  == n) return EV_OK;
         if (EV_ERR == n) return EV_ERR;
@@ -288,15 +342,22 @@ int recv_header(struct http *h)
             return EV_ERR;
         }
 
-        h->buf_offset += n;
+        res->buf_offset += n;
 
         if (EV_OK == process_header(h))
         {
+            if (200 == h->header_res.status)
+            {
+                config.sum_status_200++;
+            }
+            else
+                config.sum_status_other++;
+
             h->next_state = HTTP_RECV_BODY;
             return EV_AG;
         }
 
-        if (h->buf_offset >= sizeof(h->buf))
+        if (res->buf_offset >= sizeof(res->buf))
         {
             logerr(h, "Header Too big!\n");
             return EV_ERR;

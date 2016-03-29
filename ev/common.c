@@ -17,6 +17,7 @@
 #include <netdb.h>
 
 #include "common.h"
+#include "strings.h"
 
 char *strnstr(const char *s1, const char *s2, size_t len)
 {

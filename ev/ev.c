@@ -38,7 +38,7 @@ void print_http_info(struct http *h)
     if (config.print & PRINT_TIME)
     {
         logdebug("%llu %d %d %4d %5s/s ",
-                h->index, h->status, h->port,
+                h->index, h->header_res.status, h->port,
                 h->content_recv, speed);
         logdebug("%d.%.3d %d.%.3d %d.%.3d %d.%.3d | %d.%.3d | %d.%.3d %d %d %s\n",
             h->time_dns/1000,      h->time_dns      % 1000,
@@ -51,9 +51,6 @@ void print_http_info(struct http *h)
             h->body_read_times,
             h->url
             );
-
-
-
     }
 
 

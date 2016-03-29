@@ -3,7 +3,9 @@ CFLAGS += -I ev -I ae
 CFLAGS += -Lae -lae
 CFLAGS += -Lev -levhttp
 
-#CFLAGS += -fsanitize=address
+ifdef DEV
+CFLAGS += -fsanitize=address
+endif
 
 export CFLAGS
 

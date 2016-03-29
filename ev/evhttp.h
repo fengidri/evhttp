@@ -96,6 +96,20 @@ struct config{
     int print;
 };
 
+struct http_response_header{
+    char buf[8 * 1024];
+    size_t buf_offset;
+    size_t length;
+
+    int    status;
+    char   *response_line;
+    size_t response_line_n;
+    char  *fields;
+
+    int content_length;
+    bool   chunked;
+};
+
 
 // http struct for every connect and request
 struct http{
@@ -110,18 +124,18 @@ struct http{
 
     char url[1024];
 
+
     char buf[4 * 1024];
-    int  buf_offset;
+    size_t  buf_offset;
 
-    bool read_header;
-    int status;
 
-    bool chunked;
     int chunk_length;
     int chunk_recv;
 
-    int content_length;
     int content_recv;
+
+    struct http_response_header header_res;
+
 
     int body_read_times;
     int time_max_read_n;
