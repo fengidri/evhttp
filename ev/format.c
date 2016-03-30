@@ -77,38 +77,40 @@ format_info(struct http *h, struct format_item *item,
     return snprintf(buf, size, "%d", t);
 }
 
+
+struct map{
+    const char *flag;
+    void *handle;
+};
+struct map map_handles[] = {
+    {"header.res.", format_header},
+    {"time.",       format_time},
+    {"info.",       format_info},
+    {NULL,          NULL},
+};
+
 static int format_set_handle(struct format_item *item)
 {
-    if (item->item_n > 11)
+    size_t flag_n;
+    struct map *m;
+
+    m = map_handles;
+    while (m->flag)
     {
-        if (0 == strncmp(item->item, "header.res.", 11))
+        flag_n = strlen(m->flag);
+        if (item->item_n > flag_n)
         {
-            item->item += 11;
-            item->item_n -= 11;
-            item->handle = format_header;
-            return 0;
+            if (0 == strncmp(item->item, m->flag, flag_n))
+            {
+                item->item += flag_n;
+                item->item_n -= flag_n;
+                item->handle = m->handle;
+                return 0;
+            }
         }
+        ++m;
     }
-    else if (item->item_n > 5)
-    {
-        if (0 == strncmp(item->item, "time.", 5))
-        {
-            item->item += 5;
-            item->item_n -= 5;
-            item->handle = format_time;
-            return 0;
-        }
-    }
-    else if (item->item_n > 5)
-    {
-        if (0 == strncmp(item->item, "info.", 5))
-        {
-            item->item += 5;
-            item->item_n -= 5;
-            item->handle = format_info;
-            return 0;
-        }
-    }
+
     seterr("not fond the handle for this item: %.*s", item->item_n, item->item);
     return -1;
 }
@@ -117,8 +119,7 @@ static int format_set_handle(struct format_item *item)
 
 static int _format_compile(struct config *config)
 {
-    const char *pos;
-    const char *start;
+    const char *pos, *start;
     struct format_item *item;
 
     item = config->fmt_items;
@@ -184,10 +185,8 @@ try:
 int format_compile(struct config *config, const char * arg, bool isfile)
 {
     const char *pos;
-    size_t dollar_num;
-    size_t item_num;
+    size_t dollar_num, item_num;
     int res;
-
 
     if (config->fmt) return 0;
     config->print = PRINT_FMT;
@@ -233,8 +232,7 @@ const char * format_handle(struct config *config, struct http *h)
 {
     struct format_item *item;
     char *pos;
-    size_t size;
-    size_t left;
+    size_t size, left;
 
     item = config->fmt_items;
     pos = config->fmt_buffer;
@@ -259,22 +257,17 @@ const char * format_handle(struct config *config, struct http *h)
     if ('\n' != *(pos - 1))
     {
         *pos = '\n';
-        *++pos = 0;
+        ++pos;
     }
-    else{
-        *pos = 0;
-    }
-
+    *pos = 0;
 
     return config->fmt_buffer;
-
 }
 
 void format_destroy(struct config *config)
 {
     if (config->fmt_items)
     {
-
         free(config->fmt_items);
         config->fmt_items = NULL;
     }
