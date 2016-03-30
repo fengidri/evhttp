@@ -51,6 +51,8 @@ So you can not set different ip for every domain in command line.
 
 
 ## output format
+
+### -w
 You can choose the value to be output by -w.
 
 '-w' special the format to print the value. like this:
@@ -77,5 +79,31 @@ There are many value can be used:
 * info.lport
 * info.recv
 * info.speed
+
+
+### -W
+you can use the -W to special file as the fmt.
+like this:
+```
+------------------------ Header -------------------------------
+Via: $header.res.via$
+Age: $header.res.age$
+------------------------ Time -------------------------------
+DNS: $time.dns$
+CON: $time.con$
+TOTAL: $time.total$
+```
+
+This output like this:
+
+```
+------------------------ Header -------------------------------
+Via: nginx server
+Age: 171865
+------------------------ Time -------------------------------
+DNS: 0.000
+CON: 0.012
+TOTAL: 0.190
+```
 
 

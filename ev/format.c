@@ -190,7 +190,7 @@ int format_compile(struct config *config, const char * arg, bool isfile)
 
 
     if (config->fmt) return 0;
-    config->print |= PRINT_FMT;
+    config->print = PRINT_FMT;
 
     if (isfile)
     {
