@@ -50,3 +50,32 @@ So you can not set different ip for every domain in command line.
 
 
 
+## output format
+You can choose the value to be output by -w.
+
+'-w' special the format to print the value. like this:
+```
+-w 'age: $header.res.age$ DNS: $time.dns$ CON: $time.con$ RES: $time.res$ MAXREAD: $time.max_read$, TRANS: $time.trans$ Total: $time.total$'
+```
+
+will print this:
+```
+age: 164956 DNS: 0.000 CON: 0.012 RES: 0.016 MAXREAD: 0.005, TRANS: 0.125 Total: 0.142
+```
+
+There are many value can be used:
+
+* header.res.[field]
+* time.dns
+* time.con
+* time.res
+* time.trans
+* time.total
+* time.max\_read
+* info.status
+* info.index
+* info.lport
+* info.recv
+* info.speed
+
+

@@ -12,6 +12,10 @@
 
 #include "ev.h"
 #include "parser.h"
+#include "format.h"
+
+char * errstr;
+char errbuf[1024];
 
 void logdebug(const char *fmt, ...)
 {
@@ -25,43 +29,12 @@ void logdebug(const char *fmt, ...)
 
 void print_http_info(struct http *h)
 {
-    char value[1204];
-    int lens[20];
-    char speed[20] = {"-"};
-    char *pos, *next;
 
-    char *via = "-";
-    size_t via_n = 1;
-
-    parser_get_http_field_value(&h->header_res, "via", 3, &via, &via_n);
-
-
-
-    if (h->time_trans)
-        size_fmt(speed, sizeof(speed),
-                (double)h->content_recv/h->time_total * 1000);
-    if (config.print & PRINT_TIME_H)
-        logdebug("DNS CON RES MAXREAD TRANS TOTAL\n");
-
-    if (config.print & PRINT_TIME)
+    if (config.fmt_items && config.print & PRINT_FAT)
     {
-        logdebug("%llu %d %d %4d %5s/s ",
-                h->index, h->header_res.status, h->port,
-                h->content_recv, speed);
-        logdebug("%d.%.3d %d.%.3d %d.%.3d %d.%.3d | %d.%.3d | %d.%.3d %d %d %s via: %.*s\n",
-            h->time_dns/1000,      h->time_dns      % 1000,
-            h->time_connect/1000,  h->time_connect  % 1000,
-            h->time_response/1000, h->time_response % 1000,
-            h->time_trans/1000,    h->time_trans    % 1000,
-            h->time_total/1000,    h->time_total    % 1000,
-            h->time_max_read/1000, h->time_max_read % 1000,
-            h->time_max_read_n,
-            h->body_read_times,
-            h->url,
-            via_n, via
-            );
+        format_handle(&config, h);
+        printf("%s\n", config.fmt_buffer);
     }
-
 
 
 //#pos = value;

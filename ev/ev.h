@@ -9,7 +9,6 @@
 #define __EV_H__
 
 #include <stdarg.h>
-#include <stdarg.h>
 #include "evhttp.h"
 
 

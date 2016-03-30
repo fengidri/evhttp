@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 
 #include "common.h"
+#include "format.h"
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
@@ -89,6 +90,10 @@ int arg_parser(int argc, char **argv)
                 ev_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
                 break;
             case 'f': config.flag             = optarg;       break;
+            case 'w':
+                      config.fmt              = optarg;
+                      config.print            |= PRINT_FAT;
+                      break;
             case 'p': config.remote.port      = atoi(optarg); break;
             case 'x': config.parallel         = atoi(optarg); break;
             case 'n': config.total_limit      = atoi(optarg); break;
@@ -183,7 +188,7 @@ int config_init(int argc, char **argv)
     {
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
-    return EV_OK;
+    return format_compile(&config);
 }
 
 
@@ -218,4 +223,5 @@ int main(int argc, char **argv)
         t = timeval_diff(start, now);
         printf("Time Total: %d.%.3d\n", t/1000, t%1000);
     }
+    format_destroy(&config);
 }

@@ -16,11 +16,31 @@
 
 #include <stdbool.h>
 #include <sys/time.h>
+#include <stdarg.h>
 #include "ae.h"
 #include "common.h"
 
 #define RECYCLE_TIMES 1
 #define RECYCLE_BYTES 2
+
+extern char *errstr;
+extern char errbuf[1024];
+
+static inline void seterr(const char *fmt, ...)
+{
+    va_list argList;
+
+    va_start(argList, fmt);
+    vsnprintf(errbuf, sizeof(errbuf), fmt, argList);
+    va_end(argList);
+
+    errstr = errbuf;
+}
+
+static inline const char *geterr()
+{
+    return errstr;
+}
 
 struct remote{
     char domain[200];
@@ -55,46 +75,14 @@ enum http_state{
 #define PRINT_DNS      1 << 4
 #define PRINT_CON      1 << 5
 #define PRINT_BAR      1 << 6
+#define PRINT_FAT      1 << 7
 
-struct config{
-    aeEventLoop *el;
-    struct remote remote;
-
-
-    int         parallel;
-    enum loglevel  loglevel;
-
-    char   headers[2048];
-    size_t headers_n;
-
-    char      **urls;
-    char       *_urls[100];
-    size_t      urls_n;
-
-    int         total;
-    int         total_limit;
-    int         active;
-
-    const char *recycle;
-    int         recycle_times;
-    int         recycle_type;
-    long long   recycle_limit;
-
-    size_t      index;
-    const char *flag;
-
-    bool               sum;
-    int                sum_timer_id;
-    long long          sum_recv;
-    long long          sum_recv_cur;
-    long long          sum_status_200;
-    long long          sum_status_other;
-
-    const char * method;
-
-    const char dns[20];
-    int print;
+enum {
+    FORMAT_TYPE_NONE,
+    FORMAT_TYPE_ORGIN,
+    FORMAT_TYPE_FMT,
 };
+
 
 struct http_response_header{
     char buf[8 * 1024];
@@ -147,11 +135,65 @@ struct http{
     int time_dns;
     int time_connect;
     int time_response;
-    int time_body;
     int time_trans;
     int time_max_read;
     int time_total; // from send request to end
     //float time_max_read;
+};
+
+struct format_item{
+    int type;
+    const char *item;
+    size_t item_n;
+    int (*handle)(struct http *h, struct format_item *item,
+                char *buf, size_t size);
+};
+
+
+struct config{
+    aeEventLoop *el;
+    struct remote remote;
+
+
+    int         parallel;
+    enum loglevel  loglevel;
+
+    char   headers[2048];
+    size_t headers_n;
+
+    char      **urls;
+    char       *_urls[100];
+    size_t      urls_n;
+
+    int         total;
+    int         total_limit;
+    int         active;
+
+    const char *recycle;
+    int         recycle_times;
+    int         recycle_type;
+    long long   recycle_limit;
+
+    size_t      index;
+    const char *flag;
+
+    bool               sum;
+    int                sum_timer_id;
+    long long          sum_recv;
+    long long          sum_recv_cur;
+    long long          sum_status_200;
+    long long          sum_status_other;
+
+    const char * method;
+
+    const char dns[20];
+    int print;
+
+    const char *fmt;
+    struct format_item * fmt_items;
+    char fmt_buffer[1024 * 1024];
+    char *fmt_pos;
+
 };
 
 void http_new();
