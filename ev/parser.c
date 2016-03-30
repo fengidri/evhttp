@@ -184,6 +184,15 @@ int process_header(struct http *h)
     char *value;
     size_t value_n;
     int r;
+
+    r = parser_get_http_field_value(res, "Connection", 10,
+            &value, &value_n);
+
+    if (0 == r && 0 != strncmp(value, "keep-alive", value_n))
+    {
+        h->keepalive = false;
+    }
+
     r = parser_get_http_field_value(res, "content-length", 14,
             &value, &value_n);
     if (0 == r)

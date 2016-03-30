@@ -31,6 +31,7 @@ struct config config = {
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
     .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_CON | PRINT_DNS,
+    .keepalive     = true,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -44,8 +45,6 @@ static inline int ev_recv(int fd, char *buf, size_t len)
     }
     return n;
 }
-
-
 
 int recv_no_chunked(int fd, struct http *h)
 {
@@ -231,6 +230,7 @@ int send_request(struct http *h)
 
 int http_end(struct http *h)
 {
+    int fd = -1;
     update_time(h, HTTP_END);
 
     if (config.fmt_items && config.print & PRINT_FMT)
@@ -239,6 +239,27 @@ int http_end(struct http *h)
         logdebug("%s", config.fmt_buffer);
     }
 
+    if (config.keepalive && h->keepalive)
+    {
+        fd = h->fd;
+    }
+    else{
+        aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
+        aeDeleteFileEvent(config.el, h->fd, AE_WRITABLE);
+        close(h->fd);
+    }
+
+
+    http_reset(h);
+
+    if (fd > -1)
+        h->fd = fd;
+
+    return EV_AG;
+}
+
+void http_destory(struct http *h)
+{
     if (h->fd > 0)
     {
         aeDeleteFileEvent(config.el, h->fd, AE_READABLE);
@@ -246,9 +267,10 @@ int http_end(struct http *h)
         close(h->fd);
     }
 
-    http_reset(h);
+    free(h); // STOP
 
-    return EV_AG;
+    config.active -= 1;
+    if (config.active <= 0) aeStop(config.el);
 }
 
 void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
@@ -257,6 +279,8 @@ void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
     int ret;
     do{
         ret = httpsm(h, mask);
+        if (EV_ERR == ret)
+            http_destory(h);
     }while(ret == EV_AG);
 }
 
@@ -267,14 +291,15 @@ int httpsm(struct http *h, int mask)
     {
         case HTTP_NEW:
             update_time(h, HTTP_NEW);
-            h->next_state = HTTP_DNS;
             if (!get_url(h))
             {
-                free(h); // STOP
-                config.active -= 1;
-                if (config.active <= 0) aeStop(config.el);
                 return EV_ERR;
             }
+            if (h->fd > -1)
+                h->next_state = HTTP_SEND_REQUEST; // keepalive
+            else
+                h->next_state = HTTP_DNS;
+
             return EV_AG;
 
         case HTTP_DNS:
@@ -301,12 +326,12 @@ int httpsm(struct http *h, int mask)
             if (config.print & PRINT_CON)
                 logdebug("Connecting to %s:%d....\n",
                         h->remote->ip, h->remote->port);
+
             h->fd = net_connect(h->remote->ip, h->remote->port);
 
             if (h->fd < 0){
                 logerr(h, "%s\n", geterr());
-                h->next_state = HTTP_END;
-                return EV_AG;
+                return EV_ERR;
             }
 
             h->next_state = HTTP_CONNECT_POST;
@@ -317,7 +342,6 @@ int httpsm(struct http *h, int mask)
         case HTTP_CONNECT_POST:
             h->next_state = HTTP_SEND_REQUEST;
             return EV_AG;
-
 
         case HTTP_SEND_REQUEST: return send_request(h);
         case HTTP_RECV_HEADER:  return recv_header(h);
@@ -337,6 +361,7 @@ void http_reset(struct http *h)
     h->fd           = -1;
     h->next_state   = HTTP_NEW;
     h->index        = config.total;
+    h->keepalive    = 1;
 
 }
 

@@ -89,6 +89,7 @@ struct http{
     char buf[4 * 1024];
     size_t  buf_offset;
 
+    bool    keepalive;
 
     int chunk_length;
     int chunk_recv;
@@ -156,6 +157,8 @@ struct config{
     long long          sum_recv_cur;
     long long          sum_status_200;
     long long          sum_status_other;
+
+    bool    keepalive;
 
     const char * method;
 
