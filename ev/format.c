@@ -89,7 +89,7 @@ static int format_set_handle(struct format_item *item)
             return 0;
         }
     }
-    if (item->item_n > 5)
+    else if (item->item_n > 5)
     {
         if (0 == strncmp(item->item, "time.", 5))
         {
@@ -99,7 +99,7 @@ static int format_set_handle(struct format_item *item)
             return 0;
         }
     }
-    if (item->item_n > 5)
+    else if (item->item_n > 5)
     {
         if (0 == strncmp(item->item, "info.", 5))
         {
@@ -181,14 +181,31 @@ try:
     return 0;
 }
 
-int format_compile(struct config *config)
+int format_compile(struct config *config, const char * arg, bool isfile)
 {
     const char *pos;
     size_t dollar_num;
     size_t item_num;
     int res;
 
-    if (!config->fmt) return 0;
+
+    if (config->fmt) return 0;
+    config->print |= PRINT_FMT;
+
+    if (isfile)
+    {
+        size_t l;
+        res = fileread(arg, &config->fmt, &l);
+        if (-1 == res)
+        {
+            printf("Format Error: %s\n", geterr());
+            return -1;
+        }
+    }
+    else{
+        config->fmt  = malloc(strlen(arg) + 1);
+        memcpy(config->fmt, arg, strlen(arg) + 1);
+    }
 
     pos = config->fmt;
     dollar_num = 0;
@@ -223,9 +240,9 @@ const char * format_handle(struct config *config, struct http *h)
     pos = config->fmt_buffer;
     while (FORMAT_TYPE_NONE != item->type)
     {
+        left = sizeof(config->fmt_buffer) - (pos - config->fmt_buffer) - 2;
         if (FORMAT_TYPE_ORGIN == item->type)
         {
-            left = sizeof(config->fmt_buffer) - (pos - config->fmt_buffer) - 1;
             if (item->item_n > left)
                 size = left;
             else
@@ -234,12 +251,21 @@ const char * format_handle(struct config *config, struct http *h)
             memcpy(pos, item->item, size);
             pos += size;
         } else {
-            left = sizeof(config->fmt_buffer) - (pos - config->fmt_buffer) - 1;
             pos += item->handle(h, item, pos, left);
         }
         ++item;
     }
-    *(pos + 1) = 0;
+
+    if ('\n' != *(pos - 1))
+    {
+        *pos = '\n';
+        *++pos = 0;
+    }
+    else{
+        *pos = 0;
+    }
+
+
     return config->fmt_buffer;
 
 }
@@ -247,5 +273,15 @@ const char * format_handle(struct config *config, struct http *h)
 void format_destroy(struct config *config)
 {
     if (config->fmt_items)
+    {
+
         free(config->fmt_items);
+        config->fmt_items = NULL;
+    }
+
+    if (config->fmt)
+    {
+        free(config->fmt);
+        config->fmt = NULL;
+    }
 }

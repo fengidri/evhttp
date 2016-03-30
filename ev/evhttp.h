@@ -23,25 +23,6 @@
 #define RECYCLE_TIMES 1
 #define RECYCLE_BYTES 2
 
-extern char *errstr;
-extern char errbuf[1024];
-
-static inline void seterr(const char *fmt, ...)
-{
-    va_list argList;
-
-    va_start(argList, fmt);
-    vsnprintf(errbuf, sizeof(errbuf), fmt, argList);
-    va_end(argList);
-
-    errstr = errbuf;
-}
-
-static inline const char *geterr()
-{
-    return errstr;
-}
-
 struct remote{
     char domain[200];
     int  port;
@@ -75,7 +56,7 @@ enum http_state{
 #define PRINT_DNS      1 << 4
 #define PRINT_CON      1 << 5
 #define PRINT_BAR      1 << 6
-#define PRINT_FAT      1 << 7
+#define PRINT_FMT      1 << 7
 
 enum {
     FORMAT_TYPE_NONE,
@@ -189,7 +170,7 @@ struct config{
     const char dns[20];
     int print;
 
-    const char *fmt;
+    char *fmt;
     struct format_item * fmt_items;
     char fmt_buffer[1024 * 1024];
     char *fmt_pos;

@@ -13,7 +13,6 @@
 
 
 void logdebug(const char *fmt, ...);
-void print_http_info(struct http *h);
 void update_time(struct http *h, enum http_state state);
 
 static inline void logerr(struct http *h, const char *fmt, ...)

@@ -13,6 +13,7 @@
 #include "url.h"
 #include "evhttp.h"
 #include "parser.h"
+#include "format.h"
 
 void http_destory(struct http *);
 void http_chunk_read(struct http *h, char *buf, size_t size);
@@ -315,7 +316,12 @@ int send_request(struct http *h)
 int http_end(struct http *h)
 {
     update_time(h, HTTP_END);
-    print_http_info(h);
+
+    if (config.fmt_items && config.print & PRINT_FAT)
+    {
+        format_handle(&config, h);
+        logdebug("%s", config.fmt_buffer);
+    }
 
     if (h->fd > 0)
     {

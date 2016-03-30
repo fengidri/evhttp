@@ -14,8 +14,6 @@
 #include "parser.h"
 #include "format.h"
 
-char * errstr;
-char errbuf[1024];
 
 void logdebug(const char *fmt, ...)
 {
@@ -27,38 +25,6 @@ void logdebug(const char *fmt, ...)
     va_end(argList);
 }
 
-void print_http_info(struct http *h)
-{
-
-    if (config.fmt_items && config.print & PRINT_FAT)
-    {
-        format_handle(&config, h);
-        printf("%s\n", config.fmt_buffer);
-    }
-
-
-//#pos = value;
-//    for (size_t i=0; i < sizeof(lens)/sizeof(lens[0]); ++i)
-//    {
-//        next = strstr(pos, "|");
-//        if (next)
-//        {
-//            lens[i] = next - pos;
-//            *next = ' ';
-//            pos = next + 1;
-//        }
-//        else break;
-//    }
-//
-//
-//        logdebug("%-*s %-*s %-*s %-*s %-*s %-*s %-*s %-*s URL\n",
-//                lens[0], "INDEX",
-//                lens[1], "CODE", lens[2], "PORT", lens[3], "DNS",  lens[4], "CON",
-//                lens[5], "RECV",   lens[6], "READ", lens[7], "TRANS", lens[8], "BODY",
-//                lens[9], "Speed", "ULR");
-
-
-}
 
 void update_time(struct http *h, enum http_state state)
 {

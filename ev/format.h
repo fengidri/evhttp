@@ -7,7 +7,7 @@
  */
 #ifndef  __FORMAT_H__
 #define __FORMAT_H__
-int format_compile(struct config *config);
+int format_compile(struct config *config, const char * arg, bool isfile);
 void format_handle(struct config *config, struct http *h);
 void format_destroy(struct config *config);
 

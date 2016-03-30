@@ -29,12 +29,33 @@ int net_recv(int fd, char *buf, size_t len);
 int net_connect(const char *addr, int port);
 bool net_resolve(const char *addr, char *buf, size_t size);
 int net_client_port(int fd);
+int fileread(const char *path, char **buf, size_t *size);
 
 static inline void ev_strncpy(char *dest, const char *src, size_t size)
 {
     strncpy(dest, src, size);
     dest[size - 1] = 0;
 }
+
+extern char *errstr;
+extern char errbuf[1024];
+
+static inline void seterr(const char *fmt, ...)
+{
+    va_list argList;
+
+    va_start(argList, fmt);
+    vsnprintf(errbuf, sizeof(errbuf), fmt, argList);
+    va_end(argList);
+
+    errstr = errbuf;
+}
+
+static inline const char *geterr()
+{
+    return errstr;
+}
+
 
 #endif
 

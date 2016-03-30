@@ -1,0 +1,7 @@
+------------------------ Header -------------------------------
+Via: $header.res.via$
+Age: $header.res.age$
+------------------------ Time -------------------------------
+DNS: $time.dns$
+CON: $time.con$
+TOTAL: $time.total$

@@ -90,15 +90,19 @@ int arg_parser(int argc, char **argv)
                 ev_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
                 break;
             case 'f': config.flag             = optarg;       break;
-            case 'w':
-                      config.fmt              = optarg;
-                      config.print            |= PRINT_FAT;
-                      break;
             case 'p': config.remote.port      = atoi(optarg); break;
             case 'x': config.parallel         = atoi(optarg); break;
             case 'n': config.total_limit      = atoi(optarg); break;
             case 'r': config.recycle          = optarg;       break;
             case 'm': config.method           = optarg;       break;
+            case 'w':
+                      if (0 != format_compile(&config, optarg, 0))
+                          return EV_ERR;
+                          break;
+            case 'W':
+                      if (0 != format_compile(&config, optarg, 1))
+                          return EV_ERR;
+                          break;
             case 'H':
                       {
                           size_t l;
@@ -188,7 +192,7 @@ int config_init(int argc, char **argv)
     {
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
-    return format_compile(&config);
+    return EV_OK;
 }
 
 
