@@ -10,8 +10,8 @@
 #include "evhttp.h"
 int parser_get_http_field_value(struct http_response_header *res,
         const char *target, size_t target_n, char **tvalue, size_t *tvalue_n);
-int chunk_read(char *buffer, size_t size, int *length, int *recved,
-        size_t *body, char **err);
+int process_header(struct http *h);
+int http_chunk_read(struct http *h, char *buf, size_t size);
 
 #endif
 

@@ -5,6 +5,7 @@
  *   version      :   1.0.1
  *   description  :
  */
+
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -98,7 +99,7 @@ bool net_resolve(const char *addr, char *buf, size_t size)
 
     if (NULL == hptr)
     {
-        perr("gethostbyname error: %s\n", addr);
+        seterr("gethostbyname error: %s", addr);
         return false;
     }
 
@@ -112,13 +113,13 @@ int net_connect(const char *addr, int port)
     s = socket(AF_INET,  SOCK_STREAM, 0);
     if (s < 0)
     {
-        perror("socket");
+        seterr("connect error: create socket: %s", strerror(errno));
         return -1;
     }
 
     if (net_noblock(s, true) < 0)
     {
-        perror("noblock");
+        seterr("connect error: set noblock: %s", strerror(errno));
         return -1;
     }
 
@@ -133,7 +134,7 @@ int net_connect(const char *addr, int port)
         if( errno == EINPROGRESS ) {
             break;
         }  else {
-            perror("connect fail");
+            seterr("connect error: connect fail: %s", strerror(errno));
             return -1;
         }
     }
@@ -210,4 +211,18 @@ int size_fmt(char *buf, size_t len, double s)
     }
 
     return snprintf(buf, len, "%.3f%c", s, ps[p]);
+}
+
+char *nskipspace(char *s, int n)
+{
+    char *ss;
+    ss = s;
+    while (ss - s < n)
+    {
+        if (*ss == ' ')
+            ++ss;
+        else
+            return ss;
+    }
+    return NULL;
 }

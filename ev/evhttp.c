@@ -16,8 +16,8 @@
 #include "format.h"
 
 void http_destory(struct http *);
-void http_chunk_read(struct http *h, char *buf, size_t size);
 int httpsm(struct http *h, int mask);
+void http_reset(struct http *h);
 
 struct config config = {
     .remote.port   = 80,
@@ -30,8 +30,7 @@ struct config config = {
     .urls          = config._urls,
     .loglevel      = LOG_DEBUG,
     .method        = "GET",
-    .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_TIME_H \
-                     | PRINT_TIME | PRINT_CON | PRINT_DNS,
+    .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_CON | PRINT_DNS,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
@@ -46,76 +45,7 @@ static inline int ev_recv(int fd, char *buf, size_t len)
     return n;
 }
 
-void http_reset(struct http *h)
-{
-    memset(h, 0, sizeof(*h));
-    config.total += 1;
 
-    h->remote       = &h->_remote;
-    h->fd           = -1;
-    h->next_state   = HTTP_NEW;
-    h->index        = config.total;
-
-}
-
-
-
-int process_header(struct http *h)
-{
-    char *pos;
-    struct http_response_header *res;
-    res = &h->header_res;
-
-
-    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
-    if (!pos)
-        return EV_AG;
-
-    res->length = pos - res->buf + 4; // header length
-
-    pos = strnstr(res->buf, "\r\n", res->length);
-    if (*(pos + 1) == '\r')
-    {
-        //logerr("error response header.\n");
-        return EV_ERR;
-    }
-
-    if (config.print & PRINT_RESPONSE)
-        logdebug("%.*s", res->length, res->buf);
-
-    res->response_line = res->buf;
-    res->response_line_n = pos - res->buf;
-
-    res->fields = pos + 2;
-
-    res->status = atoi(res->response_line + 9);
-
-
-    char *value;
-    size_t value_n;
-    if (0 == parser_get_http_field_value(res, "content-length", 14, &value, &value_n))
-    {
-        res->chunked = false;
-        res->content_length = atoi(value);
-
-        h->content_recv = res->buf_offset - res->length;
-        return EV_OK;
-    }
-
-    if (0 == parser_get_http_field_value(res, "transfer-encoding", 17, &value, &value_n))
-    {
-        h->chunk_length = -1;
-        h->chunk_recv = 0;
-
-        res->chunked = true;
-        http_chunk_read(h, res->buf + res->length, res->buf_offset - res->length);
-        return EV_OK;
-    }
-
-    res->content_length = -1;
-    res->chunked = false;
-    return EV_OK;
-}
 
 int recv_no_chunked(int fd, struct http *h)
 {
@@ -150,23 +80,6 @@ check:
 
 
 
-void http_chunk_read(struct http *h, char *buf, size_t size)
-{
-    int n;
-    size_t nn = 0;
-    char *err = NULL;
-    n = chunk_read(buf, size,
-            &h->chunk_length, &h->chunk_recv, &nn, &err);
-
-    if (err)
-        logerr(h, err);
-
-    h->buf_offset = size - n;
-    h->content_recv += nn;
-
-    if (h->buf_offset > 0)
-        memmove(h->buf, buf + n, h->buf_offset);
-}
 
 int recv_is_chunked(int fd, struct http *h)
 {
@@ -184,7 +97,8 @@ check:
     if (n == 0) h->eof = true;
     h->buf_offset += n;
 
-    http_chunk_read(h, h->buf, h->buf_offset);
+    if (EV_ERR == http_chunk_read(h, h->buf, h->buf_offset))
+        return EV_ERR;
     goto check;
 }
 
@@ -214,7 +128,7 @@ int recv_response(struct http *h)
 
 int recv_header(struct http *h)
 {
-    int n;
+    int n, r;
     struct http_response_header *res;
     res = &h->header_res;
 
@@ -238,7 +152,8 @@ int recv_header(struct http *h)
 
         res->buf_offset += n;
 
-        if (EV_OK == process_header(h))
+        r = process_header(h);
+        if (EV_OK == r)
         {
             if (200 == h->header_res.status)
             {
@@ -250,6 +165,7 @@ int recv_header(struct http *h)
             h->next_state = HTTP_RECV_BODY;
             return EV_AG;
         }
+        if (EV_ERR == r) return EV_ERR;
 
         if (res->buf_offset >= sizeof(res->buf))
         {
@@ -293,7 +209,7 @@ int send_request(struct http *h)
     if (n < 0)
     {
         h->next_state = HTTP_END;
-        logerr(h, "Send Error\n");
+        logerr(h, "Send meg fail. Error\n");
         return EV_ERR;
     }
 
@@ -317,7 +233,7 @@ int http_end(struct http *h)
 {
     update_time(h, HTTP_END);
 
-    if (config.fmt_items && config.print & PRINT_FAT)
+    if (config.fmt_items && config.print & PRINT_FMT)
     {
         format_handle(&config, h);
         logdebug("%s", config.fmt_buffer);
@@ -369,7 +285,7 @@ int httpsm(struct http *h, int mask)
                 if (!net_resolve(h->remote->domain, h->remote->ip,
                             sizeof(h->remote->ip)))
                 {
-                    logerr(h, "reslove fail: %s\n", h->remote->domain);
+                    logerr(h, "reslove fail: %s\n", geterr());
                     usleep(100000);
                     h->next_state = HTTP_NEW;
                     return EV_AG;
@@ -388,7 +304,7 @@ int httpsm(struct http *h, int mask)
             h->fd = net_connect(h->remote->ip, h->remote->port);
 
             if (h->fd < 0){
-                //usleep(100000);
+                logerr(h, "%s\n", geterr());
                 h->next_state = HTTP_END;
                 return EV_AG;
             }
@@ -412,6 +328,17 @@ int httpsm(struct http *h, int mask)
 }
 
 
+void http_reset(struct http *h)
+{
+    memset(h, 0, sizeof(*h));
+    config.total += 1;
+
+    h->remote       = &h->_remote;
+    h->fd           = -1;
+    h->next_state   = HTTP_NEW;
+    h->index        = config.total;
+
+}
 
 
 void http_new()

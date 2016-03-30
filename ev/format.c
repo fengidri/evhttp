@@ -12,6 +12,18 @@
 #include "evhttp.h"
 #include "parser.h"
 
+enum {
+    FORMAT_TYPE_NONE,
+    FORMAT_TYPE_ORGIN,
+    FORMAT_TYPE_FMT,
+};
+
+struct map{
+    const char *flag;
+    void *handle;
+};
+
+
 static int
 format_header(struct http *h, struct format_item *item, char *buf, size_t size)
 {
@@ -77,11 +89,6 @@ format_info(struct http *h, struct format_item *item,
     return snprintf(buf, size, "%d", t);
 }
 
-
-struct map{
-    const char *flag;
-    void *handle;
-};
 struct map map_handles[] = {
     {"header.res.", format_header},
     {"time.",       format_time},

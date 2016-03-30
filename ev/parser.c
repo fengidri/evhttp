@@ -12,19 +12,6 @@
 
 #include "parser.h"
 
-char *nskipspace(char *s, int n)
-{
-    char *ss;
-    ss = s;
-    while (ss - s < n)
-    {
-        if (*ss == ' ')
-            ++ss;
-        else
-            return ss;
-    }
-    return NULL;
-}
 
 int parser_get_http_field_value(struct http_response_header *res,
         const char *target, size_t target_n, char **tvalue, size_t *tvalue_n)
@@ -89,8 +76,8 @@ int parser_get_http_field_value(struct http_response_header *res,
  * @recved: chunk recved
  * return : show the date has been readed;
  */
-int chunk_read(char *buffer, size_t size, int *length, int *recved,
-        size_t *body, char **err)
+static int chunk_read(char *buffer, size_t size, int *length, int *recved,
+        size_t *body)
 {
     char *pos, *buf;
     size_t left, except;
@@ -119,7 +106,8 @@ int chunk_read(char *buffer, size_t size, int *length, int *recved,
             }
             if ('0' != *buf)
             {
-                *err = "invalid chunked response!\n";
+                seterr("invalid chunked response!");
+                return EV_ERR;
             }
             return pos - buffer + 4;
         }
@@ -142,4 +130,86 @@ read:
         buf = buf + except;
         left = size - (buf - buffer);
     }
+}
+
+
+int http_chunk_read(struct http *h, char *buf, size_t size)
+{
+    int n;
+    size_t nn = 0;
+    n = chunk_read(buf, size,
+            &h->chunk_length, &h->chunk_recv, &nn);
+
+    if (-1 == n) return EV_ERR;
+
+    h->buf_offset = size - n;
+    h->content_recv += nn;
+
+    if (h->buf_offset > 0)
+        memmove(h->buf, buf + n, h->buf_offset);
+    return EV_OK;
+}
+
+int process_header(struct http *h)
+{
+    char *pos;
+    struct http_response_header *res;
+    res = &h->header_res;
+
+
+    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
+    if (!pos)
+        return EV_AG;
+
+    res->length = pos - res->buf + 4; // header length
+
+    pos = strnstr(res->buf, "\r\n", res->length);
+    if (*(pos + 1) == '\r')
+    {
+        //logerr("error response header.\n");
+        return EV_ERR;
+    }
+
+    if (config.print & PRINT_RESPONSE)
+        logdebug("%.*s", res->length, res->buf);
+
+    res->response_line = res->buf;
+    res->response_line_n = pos - res->buf;
+
+    res->fields = pos + 2;
+
+    res->status = atoi(res->response_line + 9);
+
+
+    char *value;
+    size_t value_n;
+    int r;
+    r = parser_get_http_field_value(res, "content-length", 14,
+            &value, &value_n);
+    if (0 == r)
+    {
+        res->chunked = false;
+        res->content_length = atoi(value);
+
+        h->content_recv = res->buf_offset - res->length;
+        return EV_OK;
+    }
+    else {
+        r = parser_get_http_field_value(res, "transfer-encoding", 17,
+                &value, &value_n);
+        if (0 == r)
+        {
+            h->chunk_length = -1;
+            h->chunk_recv = 0;
+
+            res->chunked = true;
+            return http_chunk_read(h, res->buf + res->length,
+                    res->buf_offset - res->length);
+        }
+    }
+
+
+    res->content_length = -1;
+    res->chunked = false;
+    return EV_OK;
 }

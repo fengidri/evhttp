@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include <stdarg.h>
+
 #include "ae.h"
 #include "common.h"
 
@@ -48,22 +49,13 @@ enum http_state{
     HTTP_END,
 };
 
-#define PRINT_SUM 0
-#define PRINT_REQUEST 1
-#define PRINT_RESPONSE 1 << 1
-#define PRINT_TIME_H   1 << 2
-#define PRINT_TIME     1 << 3
 #define PRINT_DNS      1 << 4
 #define PRINT_CON      1 << 5
+#define PRINT_REQUEST  1
+#define PRINT_RESPONSE 1 << 1
 #define PRINT_BAR      1 << 6
 #define PRINT_FMT      1 << 7
-
-enum {
-    FORMAT_TYPE_NONE,
-    FORMAT_TYPE_ORGIN,
-    FORMAT_TYPE_FMT,
-};
-
+#define PRINT_SUM      0
 
 struct http_response_header{
     char buf[8 * 1024];

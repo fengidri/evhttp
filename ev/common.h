@@ -56,6 +56,7 @@ static inline const char *geterr()
     return errstr;
 }
 
+char *nskipspace(char *s, int n);
 
 #endif
 

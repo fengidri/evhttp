@@ -158,7 +158,7 @@ int config_init(int argc, char **argv)
     if (0 == config.total_limit) config.total_limit = -1;
     if (1 != config.total_limit)
     {
-        config.print = PRINT_TIME;
+        //config.print = PRINT_TIME;
     }
 
     // recycle
