@@ -1,8 +1,9 @@
 --Add Readme
 --Change struct response
 --Add config
+--TIME be read
 
 DNS asyn
 Fork
 SSL
-TIME be read
+long connection for diff daemon

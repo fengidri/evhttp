@@ -188,7 +188,7 @@ int process_header(struct http *h)
     r = parser_get_http_field_value(res, "Connection", 10,
             &value, &value_n);
 
-    if (0 == r && 0 != strncmp(value, "keep-alive", value_n))
+    if (0 == r && 0 != strncasecmp(value, "keep-alive", value_n))
     {
         h->keepalive = false;
     }
