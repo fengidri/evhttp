@@ -33,14 +33,14 @@ int parser_get_http_field_value(struct http_response_header *res,
         if (0 == header_n)
             break;
 
-        t = strnstr(field, ":", header_n);
+        t = sws_strnstr(field, ":", header_n);
         if (t)
         {
             field_n =  t - field;
             value = t + 1;
             value_n = header_e - value;
 
-            value = nskipspace(value, value_n);
+            value = sws_nskipspace(value, value_n);
             if (value)
                 value_n = header_e - value;
             else{
@@ -90,7 +90,7 @@ static int chunk_read(char *buffer, size_t size, int *length, int *recved,
 
     while (1)
     {
-        pos = strnstr(buf, "\r\n", left);
+        pos = sws_strnstr(buf, "\r\n", left);
         if (!pos){
             *length = -1;
             return buf - buffer;
@@ -107,7 +107,7 @@ static int chunk_read(char *buffer, size_t size, int *length, int *recved,
             if ('0' != *buf)
             {
                 seterr("invalid chunked response!");
-                return EV_ERR;
+                return SWS_ERR;
             }
             return pos - buffer + 4;
         }
@@ -140,14 +140,14 @@ int http_chunk_read(struct http *h, char *buf, size_t size)
     n = chunk_read(buf, size,
             &h->chunk_length, &h->chunk_recv, &nn);
 
-    if (-1 == n) return EV_ERR;
+    if (-1 == n) return SWS_ERR;
 
     h->buf_offset = size - n;
     h->content_recv += nn;
 
     if (h->buf_offset > 0)
         memmove(h->buf, buf + n, h->buf_offset);
-    return EV_OK;
+    return SWS_OK;
 }
 
 int process_header(struct http *h)
@@ -157,17 +157,17 @@ int process_header(struct http *h)
     res = &h->header_res;
 
 
-    pos = strnstr(res->buf, "\r\n\r\n", res->buf_offset);
+    pos = sws_strnstr(res->buf, "\r\n\r\n", res->buf_offset);
     if (!pos)
-        return EV_AG;
+        return SWS_AG;
 
     res->length = pos - res->buf + 4; // header length
 
-    pos = strnstr(res->buf, "\r\n", res->length);
+    pos = sws_strnstr(res->buf, "\r\n", res->length);
     if (*(pos + 1) == '\r')
     {
         //logerr("error response header.\n");
-        return EV_ERR;
+        return SWS_ERR;
     }
 
     if (config.print & PRINT_RESPONSE)
@@ -201,7 +201,7 @@ int process_header(struct http *h)
         res->content_length = atoi(value);
 
         h->content_recv = res->buf_offset - res->length;
-        return EV_OK;
+        return SWS_OK;
     }
     else {
         r = parser_get_http_field_value(res, "transfer-encoding", 17,
@@ -220,5 +220,5 @@ int process_header(struct http *h)
 
     res->content_length = -1;
     res->chunked = false;
-    return EV_OK;
+    return SWS_OK;
 }

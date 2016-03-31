@@ -1,6 +1,6 @@
 /**
  *   author       :   丁雪峰
- *   time         :   2016-01-01 22:43:02
+ *   time         :   2016-03-31 02:02:30
  *   email        :   fengidri@yeah.net
  *   version      :   1.0.1
  *   description  :
@@ -21,55 +21,11 @@
 #include <sys/types.h>
 #include <malloc.h>
 #include <stdarg.h>
+#include <strings.h>
 
-#include "common.h"
-#include "strings.h"
+#include "sws.h"
 
-char * errstr;
-char errbuf[1024];
-
-int fileread(const char *path, char **buf, size_t *size)
-{
-    struct stat st;
-
-    int f = open(path, O_RDONLY);
-    if (-1 == f){
-        seterr("open: %s", strerror(errno));
-        return -1;
-    }
-
-    if(-1 == fstat(f, &st))
-    {
-        seterr("stat: %s", strerror(errno));
-        return -1;
-    }
-
-    *buf = malloc(st.st_size + 2);
-    *size = read(f, *buf, st.st_size);
-
-    (*buf)[*size] = 0;
-    close(f);
-    return 0;
-}
-
-char *strnstr(const char *s1, const char *s2, size_t len)
-{
-    size_t l2;
-
-    l2 = strlen(s2);
-    if (!l2)
-        return (char *)s1;
-
-    while (len >= l2) {
-        len--;
-        if (!memcmp(s1, s2, l2))
-            return (char *)s1;
-        s1++;
-    }
-    return NULL;
-}
-
-int net_noblock(int fd, bool b)
+int sws_net_noblock(int fd, bool b)
 {
     int flags;
 
@@ -91,7 +47,7 @@ int net_noblock(int fd, bool b)
     return 0;
 }
 
-bool net_resolve(const char *addr, char *buf, size_t size)
+bool sws_net_resolve(const char *addr, char *buf, size_t size)
 {
     // resolve
     struct hostent *hptr;
@@ -107,7 +63,7 @@ bool net_resolve(const char *addr, char *buf, size_t size)
     return true;
 }
 
-int net_connect(const char *addr, int port)
+int sws_net_connect(const char *addr, int port)
 {
     int s;
     s = socket(AF_INET,  SOCK_STREAM, 0);
@@ -117,7 +73,7 @@ int net_connect(const char *addr, int port)
         return -1;
     }
 
-    if (net_noblock(s, true) < 0)
+    if (sws_net_noblock(s, true) < 0)
     {
         seterr("connect error: set noblock: %s", strerror(errno));
         return -1;
@@ -142,7 +98,7 @@ int net_connect(const char *addr, int port)
     return s;
 }
 
-int net_recv(int fd, char *buf, size_t len)
+int sws_net_recv(int fd, char *buf, size_t len)
 {
     int n, err;
 
@@ -152,17 +108,17 @@ int net_recv(int fd, char *buf, size_t len)
     {
         if ((err == EAGAIN) || (err == EWOULDBLOCK))
         {
-            return EV_AG;
+            return SWS_AG;
         }
         else
         {
-            return EV_ERR;
+            return SWS_ERR;
         }
     }
     return n;
 }
 
-int net_client_port(int fd)
+int sws_net_client_port(int fd)
 {
     struct sockaddr_in c;
     socklen_t cLen = sizeof(c);
@@ -171,7 +127,7 @@ int net_client_port(int fd)
     return ntohs(c.sin_port);
 }
 
-int net_info(int fd, bool local, int *port, char **ip, size_t size)
+int sws_net_info(int fd, bool local, int *port, char **ip, size_t size)
 {
     struct sockaddr_in c;
     int rc;
@@ -192,37 +148,4 @@ int net_info(int fd, bool local, int *port, char **ip, size_t size)
     //    ip =
 
     return 0;
-}
-
-int size_fmt(char *buf, size_t len, double s)
-{
-    size_t p = 0;
-    char *ps = " KMGT";
-    while(1)
-    {
-        if (s >= 1024)
-        {
-            s = s / 1024;
-            p += 1;
-            if (p >= strlen(ps) - 1) break;
-        }
-        else
-            break;
-    }
-
-    return snprintf(buf, len, "%.3f%c", s, ps[p]);
-}
-
-char *nskipspace(char *s, int n)
-{
-    char *ss;
-    ss = s;
-    while (ss - s < n)
-    {
-        if (*ss == ' ')
-            ++ss;
-        else
-            return ss;
-    }
-    return NULL;
 }

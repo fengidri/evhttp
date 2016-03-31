@@ -15,7 +15,6 @@
 #include "evhttp.h"
 #include <arpa/inet.h>
 
-#include "common.h"
 #include "format.h"
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
@@ -25,13 +24,13 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     char band[20];
     int n;
 
-    n = size_fmt(recv, sizeof(recv) - 1, config.sum_recv);
+    n = sws_size_fmt(recv, sizeof(recv) - 1, config.sum_recv);
     recv[n] = 0;
 
-    n = size_fmt(speed, sizeof(speed) - 1, config.sum_recv_cur);
+    n = sws_size_fmt(speed, sizeof(speed) - 1, config.sum_recv_cur);
     speed[n] = 0;
 
-    n = size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 8);
+    n = sws_size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 8);
     band[n] = 0;
 
     config.sum_recv_cur = 0;
@@ -54,8 +53,8 @@ int arg_parser(int argc, char **argv)
         {
             if (config.urls_n >= sizeof(config._urls))
             {
-                perr("Too many urls in command line.");
-                return EV_ERR;
+                printf("Too many urls in command line.");
+                return SWS_ERR;
             }
             config.urls[config.urls_n] = arg;
             config.urls_n += 1;
@@ -67,27 +66,27 @@ int arg_parser(int argc, char **argv)
         {
             case 's': config.sum   = true; continue;
             case '\0':
-                      perr("arg: - : error\n");
-                      return EV_ERR;
+                      printf("arg: - : error\n");
+                      return SWS_ERR;
         }
 
         if (0 != arg[2]) optarg = arg + 2;
         else{
             ++i;
             if (i >= argc){
-                perr("arg: %s need opt\n", arg);
-                return EV_ERR;
+                printf("arg: %s need opt\n", arg);
+                return SWS_ERR;
             }
             optarg = argv[i];
         }
 
         switch (ch) {
             case 'd':
-                ev_strncpy(config.remote.domain, optarg,
+                sws_strncpy(config.remote.domain, optarg,
                         sizeof(config.remote.domain));
                 break;
             case 'h':
-                ev_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
+                sws_strncpy(config.remote.ip, optarg, sizeof(config.remote.ip));
                 break;
             case 'f': config.flag             = optarg;       break;
             case 'p': config.remote.port      = atoi(optarg); break;
@@ -97,11 +96,11 @@ int arg_parser(int argc, char **argv)
             case 'm': config.method           = optarg;       break;
             case 'w':
                       if (0 != format_compile(&config, optarg, 0))
-                          return EV_ERR;
+                          return SWS_ERR;
                           break;
             case 'W':
                       if (0 != format_compile(&config, optarg, 1))
-                          return EV_ERR;
+                          return SWS_ERR;
                           break;
             case 'H':
                       {
@@ -109,8 +108,8 @@ int arg_parser(int argc, char **argv)
                           l =  strlen(optarg);
                           if (l + 2 > sizeof(config.headers) - config.headers_n)
                           {
-                              perr("Too many headers in command line.");
-                              return EV_ERR;
+                              printf("Too many headers in command line.");
+                              return SWS_ERR;
                           }
 
                           strcpy(config.headers + config.headers_n, optarg);
@@ -124,32 +123,32 @@ int arg_parser(int argc, char **argv)
                       }
         }
     }
-    return EV_OK;
+    return SWS_OK;
 }
 
 int config_init(int argc, char **argv)
 {
-    if(EV_OK != arg_parser(argc, argv)) return EV_ERR;
+    if(SWS_OK != arg_parser(argc, argv)) return SWS_ERR;
 
     if (!config.urls_n) // use random url
     {
         if (!config.remote.domain[0] && !config.remote.ip[0])
         {
-            perr("Please set domain(-d) or ip(-i) for random url!!\n");
-            return EV_ERR;
+            printf("Please set domain(-d) or ip(-i) for random url!!\n");
+            return SWS_ERR;
         }
         if (!config.remote.ip[0])
         {
-            if (!net_resolve(config.remote.domain, config.remote.ip,
+            if (!sws_net_resolve(config.remote.domain, config.remote.ip,
                         sizeof(config.remote.ip)))
             {
-                perr("Cannot resolve the add: %s\n", config.remote.domain);
-                return EV_ERR;
+                printf("Cannot resolve the add: %s\n", config.remote.domain);
+                return SWS_ERR;
             }
         }
         if (!config.remote.domain)
         {
-            ev_strncpy(config.remote.domain, config.remote.ip,
+            sws_strncpy(config.remote.domain, config.remote.ip,
                     sizeof(config.remote.ip));
         }
     }
@@ -181,8 +180,8 @@ int config_init(int argc, char **argv)
                       config.recycle_type = RECYCLE_BYTES;
                       break;
             default:
-                      perr("%s connot unrecognized", config.recycle);
-                      return EV_ERR;
+                      printf("%s connot unrecognized", config.recycle);
+                      return SWS_ERR;
         }
     }
 
@@ -192,7 +191,7 @@ int config_init(int argc, char **argv)
     {
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
-    return EV_OK;
+    return SWS_OK;
 }
 
 
@@ -202,7 +201,7 @@ int main(int argc, char **argv)
     int t;
     gettimeofday(&start, NULL);
 
-    if (EV_OK != config_init(argc, argv)) return -1;
+    if (SWS_OK != config_init(argc, argv)) return -1;
 
     if (!config.urls_n)
     {
@@ -225,7 +224,7 @@ int main(int argc, char **argv)
     {
         gettimeofday(&now, NULL);
         t = timeval_diff(start, now);
-        printf("Time Total: %d.%.3d\n", t/1000, t%1000);
+        printf("Time Total: %d.%03ds\n", t/1000, t%1000);
     }
     format_destroy(&config);
 }

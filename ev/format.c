@@ -72,7 +72,7 @@ format_info(struct http *h, struct format_item *item,
     {
         if (h->time_trans)
         {
-            return size_fmt(buf, size,
+            return sws_size_fmt(buf, size,
                 (double)h->content_recv/h->time_total * 1000);
         }
         else{
@@ -201,7 +201,7 @@ int format_compile(struct config *config, const char * arg, bool isfile)
     if (isfile)
     {
         size_t l;
-        res = fileread(arg, &config->fmt, &l);
+        res = sws_fileread(arg, &config->fmt, &l);
         if (-1 == res)
         {
             printf("Format Error: %s\n", geterr());

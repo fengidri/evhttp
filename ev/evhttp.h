@@ -19,7 +19,7 @@
 #include <stdarg.h>
 
 #include "ae.h"
-#include "common.h"
+#include "sws.h"
 
 #define RECYCLE_TIMES 1
 #define RECYCLE_BYTES 2

@@ -37,7 +37,7 @@ struct config config = {
 static inline int ev_recv(int fd, char *buf, size_t len)
 {
     int n;
-    n = net_recv(fd, buf, len);
+    n = sws_net_recv(fd, buf, len);
     if (n > 0)
     {
         config.sum_recv += n;
@@ -54,19 +54,19 @@ check:
     {
         if (h->content_recv >= h->header_res.content_length)
         {
-            return EV_OK;
+            return SWS_OK;
         }
         else{
             if (h->eof)
             {
                 logerr(h, "Server close connection prematurely!!\n");
-                return EV_ERR;
+                return SWS_ERR;
             }
         }
     }
     else{
         if (h->eof)
-            return EV_OK;
+            return SWS_OK;
     }
 
     n = ev_recv(fd, h->buf, sizeof(h->buf));
@@ -84,11 +84,11 @@ int recv_is_chunked(int fd, struct http *h)
 {
     int n;
 check:
-    if (0 == h->chunk_length) return EV_OK;
+    if (0 == h->chunk_length) return SWS_OK;
     if (h->eof)
     {
         logerr(h, "Server close connection prematurely!!\n");
-        return  EV_ERR;
+        return  SWS_ERR;
     }
 
     n = ev_recv(fd, h->buf + h->buf_offset, sizeof(h->buf) - h->buf_offset);
@@ -96,8 +96,8 @@ check:
     if (n == 0) h->eof = true;
     h->buf_offset += n;
 
-    if (EV_ERR == http_chunk_read(h, h->buf, h->buf_offset))
-        return EV_ERR;
+    if (SWS_ERR == http_chunk_read(h, h->buf, h->buf_offset))
+        return SWS_ERR;
     goto check;
 }
 
@@ -113,15 +113,15 @@ int recv_response(struct http *h)
     else
         handle = recv_no_chunked;
 
-    if (EV_AG != handle(h->fd, h))
+    if (SWS_AG != handle(h->fd, h))
     {
         h->next_state = HTTP_END;
-        return EV_AG;
+        return SWS_AG;
     }
 
     if (config.print & PRINT_BAR)
         logdebug("\rRecv: %d ", h->content_recv);
-    return EV_OK;
+    return SWS_OK;
 
 }
 
@@ -140,19 +140,19 @@ int recv_header(struct http *h)
         n = ev_recv(h->fd, res->buf + res->buf_offset,
                 sizeof(res->buf) - res->buf_offset);
 
-        if (EV_AG  == n) return EV_OK;
-        if (EV_ERR == n) return EV_ERR;
+        if (SWS_AG  == n) return SWS_OK;
+        if (SWS_ERR == n) return SWS_ERR;
 
         if (n == 0){
             logerr(h, "Server close connection prematurely "
                     "while reading header!!\n");
-            return EV_ERR;
+            return SWS_ERR;
         }
 
         res->buf_offset += n;
 
         r = process_header(h);
-        if (EV_OK == r)
+        if (SWS_OK == r)
         {
             if (200 == h->header_res.status)
             {
@@ -162,17 +162,17 @@ int recv_header(struct http *h)
                 config.sum_status_other++;
 
             h->next_state = HTTP_RECV_BODY;
-            return EV_AG;
+            return SWS_AG;
         }
-        if (EV_ERR == r) return EV_ERR;
+        if (SWS_ERR == r) return SWS_ERR;
 
         if (res->buf_offset >= sizeof(res->buf))
         {
             logerr(h, "Header Too big!\n");
-            return EV_ERR;
+            return SWS_ERR;
         }
     }
-    return EV_ERR;
+    return SWS_ERR;
 }
 
 
@@ -193,7 +193,7 @@ int send_request(struct http *h)
     {
         h->next_state = HTTP_END;
         logerr(h, "URL too long!!!!\n");
-        return EV_ERR;
+        return SWS_ERR;
     }
 
     memcpy(h->buf + n, config.headers, config.headers_n);
@@ -209,7 +209,7 @@ int send_request(struct http *h)
     {
         h->next_state = HTTP_END;
         logerr(h, "Send meg fail. Error\n");
-        return EV_ERR;
+        return SWS_ERR;
     }
 
     update_time(h, HTTP_SEND_REQUEST);
@@ -223,9 +223,9 @@ int send_request(struct http *h)
     h->next_state = HTTP_RECV_HEADER;
 
     // get local port
-    h->port = net_client_port(h->fd);
+    h->port = sws_net_client_port(h->fd);
 
-    return EV_OK;
+    return SWS_OK;
 }
 
 int http_end(struct http *h)
@@ -255,7 +255,7 @@ int http_end(struct http *h)
     if (fd > -1)
         h->fd = fd;
 
-    return EV_AG;
+    return SWS_AG;
 }
 
 void http_destory(struct http *h)
@@ -279,9 +279,9 @@ void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
     int ret;
     do{
         ret = httpsm(h, mask);
-        if (EV_ERR == ret)
+        if (SWS_ERR == ret)
             http_destory(h);
-    }while(ret == EV_AG);
+    }while(ret == SWS_AG);
 }
 
 
@@ -293,31 +293,31 @@ int httpsm(struct http *h, int mask)
             update_time(h, HTTP_NEW);
             if (!get_url(h))
             {
-                return EV_ERR;
+                return SWS_ERR;
             }
             if (h->fd > -1)
                 h->next_state = HTTP_SEND_REQUEST; // keepalive
             else
                 h->next_state = HTTP_DNS;
 
-            return EV_AG;
+            return SWS_AG;
 
         case HTTP_DNS:
             if (!h->remote->ip[0])
             {
                 if (config.print & PRINT_DNS)
                     logdebug("resolve %s\n", h->remote->domain);
-                if (!net_resolve(h->remote->domain, h->remote->ip,
+                if (!sws_net_resolve(h->remote->domain, h->remote->ip,
                             sizeof(h->remote->ip)))
                 {
                     logerr(h, "reslove fail: %s\n", geterr());
                     usleep(100000);
                     h->next_state = HTTP_NEW;
-                    return EV_AG;
+                    return SWS_AG;
                 }
             }
             h->next_state = HTTP_CONNECT;
-            return EV_AG;
+            return SWS_AG;
 
         case HTTP_DNS_POST:
             update_time(h, HTTP_DNS_POST);
@@ -327,28 +327,28 @@ int httpsm(struct http *h, int mask)
                 logdebug("Connecting to %s:%d....\n",
                         h->remote->ip, h->remote->port);
 
-            h->fd = net_connect(h->remote->ip, h->remote->port);
+            h->fd = sws_net_connect(h->remote->ip, h->remote->port);
 
             if (h->fd < 0){
                 logerr(h, "%s\n", geterr());
-                return EV_ERR;
+                return SWS_ERR;
             }
 
             h->next_state = HTTP_CONNECT_POST;
             aeCreateFileEvent(config.el, h->fd, AE_WRITABLE, ev_handler, h);
             aeCreateFileEvent(config.el, h->fd, AE_READABLE, ev_handler, h);
-            return EV_OK;
+            return SWS_OK;
 
         case HTTP_CONNECT_POST:
             h->next_state = HTTP_SEND_REQUEST;
-            return EV_AG;
+            return SWS_AG;
 
         case HTTP_SEND_REQUEST: return send_request(h);
         case HTTP_RECV_HEADER:  return recv_header(h);
         case HTTP_RECV_BODY:    return recv_response(h);
         case HTTP_END:          return http_end(h);
     }
-    return EV_OK;
+    return SWS_OK;
 }
 
 
