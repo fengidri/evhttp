@@ -189,6 +189,7 @@ int config_init(int argc, char **argv)
 
     if (config.sum)
     {
+        config.print = 0;
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
     return SWS_OK;
