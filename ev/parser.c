@@ -171,7 +171,10 @@ int process_header(struct http *h)
     }
 
     if (config.print & PRINT_RESPONSE)
+    {
+        logdebug("=================== RESPONSE:%d ========================\n", h->index);
         logdebug("%.*s", res->length, res->buf);
+    }
 
     res->response_line = res->buf;
     res->response_line_n = pos - res->buf;

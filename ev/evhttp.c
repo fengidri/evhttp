@@ -120,7 +120,9 @@ int recv_response(struct http *h)
     }
 
     if (config.print & PRINT_BAR)
+    {
         logdebug("\rRecv: %d ", h->content_recv);
+    }
     return SWS_OK;
 
 }
@@ -216,7 +218,7 @@ int send_request(struct http *h)
 
     if (config.print & PRINT_RESPONSE)
     {
-        logdebug("===========================================\n");
+        logdebug("=================== REQUEST:%d ========================\n", h->index);
         logdebug("%.*s", n, h->buf);
     }
 
