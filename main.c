@@ -177,8 +177,6 @@ int arg_parser(int argc, char **argv)
 
 int config_init(int argc, char **argv)
 {
-    if(SWS_OK != arg_parser(argc, argv)) return SWS_ERR;
-
     if (!config.work_mode)
     {
         printf("Please set the work mode!\n");
@@ -248,17 +246,6 @@ int config_init(int argc, char **argv)
         config.print = 0;
         aeCreateTimeEvent(config.el, 1000, sum_handler, NULL, NULL);
     }
-    return SWS_OK;
-}
-
-
-int main(int argc, char **argv)
-{
-    struct timeval start, now;
-    int t;
-    gettimeofday(&start, NULL);
-
-    if (SWS_OK != config_init(argc, argv)) return -1;
 
     if (WORK_MODE_RANDOM == config.work_mode)
     {
@@ -267,6 +254,18 @@ int main(int argc, char **argv)
             config.remote.ip, config.remote.port, config.parallel);
     }
 
+    return SWS_OK;
+}
+
+
+int main(int argc, char **argv)
+{
+    struct timeval start, now;
+    int t;
+
+    if (SWS_OK != arg_parser(argc, argv)) return SWS_ERR;
+    if (SWS_OK != config_init(argc, argv)) return SWS_ERR;
+
     int p = config.parallel;
     while (p)
     {
@@ -274,8 +273,8 @@ int main(int argc, char **argv)
         p--;
     }
 
+    gettimeofday(&start, NULL);
     aeMain(config.el);
-
 
     if (config.total > 2)
     {
@@ -283,5 +282,6 @@ int main(int argc, char **argv)
         t = timeval_diff(start, now);
         printf("Time Total: %d.%03ds\n", t/1000, t%1000);
     }
+
     format_destroy(&config);
 }
