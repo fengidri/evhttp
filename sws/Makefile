@@ -1,4 +1,5 @@
-libsws.a: file.o net.o str.o sws.o
+CFLAGS=-g
+libsws.a: file.o net.o str.o sws.o argparser.o
 	ar cqs $@ $^
 
 clean:

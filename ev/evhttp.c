@@ -327,7 +327,7 @@ int httpsm(struct http *h, int mask)
                 logdebug("Connecting to %s:%d....\n",
                         h->remote->ip, h->remote->port);
 
-            h->fd = sws_net_connect(h->remote->ip, h->remote->port);
+            h->fd = sws_net_connect(h->remote->ip, h->remote->port, 1);
 
             if (h->fd < 0){
                 logerr(h, "%s\n", geterr());

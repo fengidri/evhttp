@@ -10,15 +10,6 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <malloc.h>
 #include <stdarg.h>
 #include <strings.h>
@@ -63,7 +54,57 @@ bool sws_net_resolve(const char *addr, char *buf, size_t size)
     return true;
 }
 
-int sws_net_connect(const char *addr, int port)
+
+int sws_net_server(const char *addr, int port, bool noblock, int backlog)
+{
+    int s;
+    int flag = 1;
+
+    s = socket(AF_INET,  SOCK_STREAM, 0);
+    if (s < 0)
+    {
+        seterr("bind error: create socket: %s", strerror(errno));
+        return -1;
+    }
+
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)))
+    {
+        seterr("connect error: set SO_REUSEADDR fail %s", strerror(errno));
+        close(s);
+        return -1;
+    }
+
+    struct sockaddr_in remote_addr;
+    memset(&remote_addr, 0, sizeof(remote_addr));
+    remote_addr.sin_family = AF_INET;
+    remote_addr.sin_addr.s_addr = inet_addr(addr);
+    remote_addr.sin_port = htons(port);
+
+    if(bind(s, (struct sockaddr*)&remote_addr, sizeof(struct sockaddr)))
+    {
+        seterr("bind error: %s", strerror(errno));
+        close(s);
+        return -1;
+    }
+
+    if (listen(s, backlog))
+    {
+        seterr("%s\n", strerror(errno));
+        return -1;
+    }
+
+    if (noblock && sws_net_noblock(s, true) < 0)
+    {
+        seterr("connect error: set noblock: %s", strerror(errno));
+        return -1;
+    }
+
+    return s;
+}
+
+
+
+int sws_net_connect(const char *addr, int port, bool noblock)
 {
     int s;
     s = socket(AF_INET,  SOCK_STREAM, 0);
@@ -72,8 +113,7 @@ int sws_net_connect(const char *addr, int port)
         seterr("connect error: create socket: %s", strerror(errno));
         return -1;
     }
-
-    if (sws_net_noblock(s, true) < 0)
+    if (noblock && sws_net_noblock(s, true) < 0)
     {
         seterr("connect error: set noblock: %s", strerror(errno));
         return -1;

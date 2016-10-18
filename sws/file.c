@@ -11,26 +11,27 @@
 #include <unistd.h>
 #include "sws.h"
 
-int sws_fileread(const char *path, char **buf, size_t *size)
+struct sws_filebuf *sws_fileread(const char *path)
 {
     struct stat st;
+    struct sws_filebuf *buf;
 
     int f = open(path, O_RDONLY);
     if (-1 == f){
         seterr("open: %s", strerror(errno));
-        return -1;
+        return NULL;
     }
 
     if(-1 == fstat(f, &st))
     {
         seterr("stat: %s", strerror(errno));
-        return -1;
+        return NULL;
     }
 
-    *buf = malloc(st.st_size + 2);
-    *size = read(f, *buf, st.st_size);
+    buf = malloc(st.st_size + sizeof(struct sws_filebuf) + 2);
 
-    (*buf)[*size] = 0;
-    close(f);
-    return 0;
+    buf->size = read(f, buf->buf, st.st_size);
+    buf->buf[buf->size] = 0;
+
+    return buf;
 }

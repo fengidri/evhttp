@@ -169,10 +169,12 @@ bool get_url(struct http *h)
 {
     if (check_limit()) return false;
 
-    if (config.urls_n)
-        return select_url(h);
-    else
+    if (WORK_MODE_RANDOM == config.work_mode)
+    {
         random_url(h);
         return true;
+    }
+    else
+        return select_url(h);
 
 }

@@ -21,9 +21,9 @@
 
 static int url_from_file(const char *filename)
 {
-    char *buf;
-    size_t size;
-    if (sws_fileread(filename, &buf, &size))
+    struct sws_filebuf *buf;
+    buf = sws_fileread(filename);
+    if (!buf)
     {
         printf("read file fail!: %s: %s\n", filename, geterr());
         return  -1;
@@ -32,20 +32,20 @@ static int url_from_file(const char *filename)
     uint linenu;
     uint i;
     linenu = 0;
-    for (i=0; i < size; ++i)
+    for (i=0; i < buf->size; ++i)
     {
-        if (buf[i] == '\n') ++linenu;
+        if (buf->buf[i] == '\n') ++linenu;
     }
 
     config.urls = malloc(sizeof(char *) * linenu);
-    config.urls[0] = buf;
+    config.urls[0] = buf->buf;
     config.urls_n += 1;
-    for (i=0; i < size; ++i)
+    for (i=0; i < buf->size; ++i)
     {
-        if (buf[i] == '\n')
+        if (buf->buf[i] == '\n')
         {
-            buf[i] = 0;
-            config.urls[config.urls_n] = buf + i + 1;
+            buf->buf[i] = 0;
+            config.urls[config.urls_n] = buf->buf + i + 1;
             config.urls_n += 1;
         }
     }
@@ -260,7 +260,7 @@ int main(int argc, char **argv)
 
     if (SWS_OK != config_init(argc, argv)) return -1;
 
-    if (!config.urls_n)
+    if (WORK_MODE_RANDOM == config.work_mode)
     {
         printf("Use Random URL. Domain: %s/%s:%d Parallel: %d\n",
             config.remote.domain,

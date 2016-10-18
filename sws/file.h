@@ -7,7 +7,13 @@
  */
 #ifndef  __FILE_H__
 #define __FILE_H__
-int sws_fileread(const char *path, char **buf, size_t *size);
+
+struct sws_filebuf{
+    size_t size;
+    char buf[];
+};
+
+struct sws_filebuf *sws_fileread(const char *path);
 
 #endif
 

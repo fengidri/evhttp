@@ -193,6 +193,7 @@ int format_compile(struct config *config, const char * arg, bool isfile)
 {
     const char *pos;
     size_t dollar_num, item_num;
+    struct sws_filebuf *buf;
     int res;
 
     if (config->fmt) return 0;
@@ -201,12 +202,14 @@ int format_compile(struct config *config, const char * arg, bool isfile)
     if (isfile)
     {
         size_t l;
-        res = sws_fileread(arg, &config->fmt, &l);
-        if (-1 == res)
+        buf = sws_fileread(arg);
+        if (!buf)
         {
             printf("Format Error: %s\n", geterr());
             return -1;
         }
+        config->fmt = buf->buf;
+        l = buf->size;
     }
     else{
         config->fmt  = malloc(strlen(arg) + 1);
