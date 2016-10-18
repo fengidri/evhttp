@@ -1,6 +1,26 @@
 # evhttp
 http client with ae event lib for analytics or benchmark.
 
+# work mode
+evhttp support three work mode: URLS, FILE, RANDOM.
+* URLS: get the urls from the command line
+```
+evhttp test.com/test
+```
+
+* FILE: get the urls from the file specialed by -F
+```
+evhttp -F urls
+```
+
+* RANDOME: use the opt -R to work as RANDOME. This mode will request use randome
+url.
+
+```
+evhttp -f T -R -h 127.0.0.1
+```
+
+
 
 # command line args
 ## remote

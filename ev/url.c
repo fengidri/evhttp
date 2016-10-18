@@ -139,7 +139,6 @@ bool select_url(struct http *h)
         strncpy(h->url, u.url, sizeof(h->url));
         h->url[sizeof(h->url) - 1] = 0;
     }
-
     else{
         h->url[0] = '/';
         h->url[1] = '\0';
@@ -155,16 +154,14 @@ bool select_url(struct http *h)
     h->remote->domain[u.domain_n] = 0;
 
     if (u.port)
-    {
         h->remote->port = u.port;
-    }
-    else{
+    else
         h->remote->port = config.remote.port;
-    }
 
-    h->remote->ip[0] = 0;
-
-    if (config.remote.ip[0]) strcpy(h->remote->ip, config.remote.ip);
+    if (config.remote.ip[0])
+        strcpy(h->remote->ip, config.remote.ip);
+    else
+        h->remote->ip[0] = 0;
     return true;
 }
 

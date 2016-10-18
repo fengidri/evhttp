@@ -50,7 +50,9 @@ static int url_from_file(const char *filename)
         }
     }
     --config.urls_n;
-    printf("Total: %d\n", config.urls_n);
+
+    config.total_limit = config.urls_n;
+    printf("Total URLS Number: %d\n", config.urls_n);
 }
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
@@ -87,6 +89,8 @@ int arg_parser(int argc, char **argv)
         arg = argv[i];
         if ('-' != arg[0])
         {
+            if (work_mode(WORK_MODE_URLS)) return SWS_ERR;
+
             if (config.urls_n >= sizeof(config._urls))
             {
                 printf("Too many urls in command line.");
@@ -94,6 +98,8 @@ int arg_parser(int argc, char **argv)
             }
             config.urls[config.urls_n] = arg;
             config.urls_n += 1;
+
+            config.total_limit = config.urls_n;
             continue;
         }
 
@@ -101,6 +107,9 @@ int arg_parser(int argc, char **argv)
         switch(ch)
         {
             case 's': config.sum   = true; continue;
+            case 'R':
+                      if (work_mode(WORK_MODE_RANDOM)) return SWS_ERR;
+                      continue;
             case '\0':
                       printf("arg: - : error\n");
                       return SWS_ERR;
@@ -130,7 +139,8 @@ int arg_parser(int argc, char **argv)
             case 'n': config.total_limit      = atoi(optarg); break;
             case 'r': config.recycle          = optarg;       break;
             case 'm': config.method           = optarg;       break;
-            case 'M':
+            case 'F':
+                      if (work_mode(WORK_MODE_FILE)) return SWS_ERR;
                       url_from_file(optarg);
                       break;
             case 'w':
@@ -169,7 +179,16 @@ int config_init(int argc, char **argv)
 {
     if(SWS_OK != arg_parser(argc, argv)) return SWS_ERR;
 
-    if (!config.urls_n) // use random url
+    if (!config.work_mode)
+    {
+        printf("Please set the work mode!\n");
+        return SWS_ERR;
+    }
+
+    // total
+    if (0 == config.total_limit) config.total_limit = -1;
+
+    if (WORK_MODE_RANDOM == config.work_mode) // use random url
     {
         if (!config.remote.domain[0] && !config.remote.ip[0])
         {
@@ -192,8 +211,6 @@ int config_init(int argc, char **argv)
         }
     }
 
-    // total
-    if (0 == config.total_limit) config.total_limit = -1;
     if (1 != config.total_limit)
     {
         //config.print = PRINT_TIME;

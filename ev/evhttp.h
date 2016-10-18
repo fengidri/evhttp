@@ -123,6 +123,13 @@ struct format_item{
                 char *buf, size_t size);
 };
 
+enum WORK_MODE{
+    WORK_MODE_NONE,
+    WORK_MODE_URLS,
+    WORK_MODE_FILE,
+    WORK_MODE_RANDOM,
+    WORK_MODE_MAX
+};
 
 struct config{
     aeEventLoop *el;
@@ -170,12 +177,30 @@ struct config{
     char fmt_buffer[1024 * 1024];
     char *fmt_pos;
 
+    int work_mode;
+
 };
 
 void http_new();
 extern struct config config;
 
+
+
 #include "ev.h"
+
+static inline int work_mode(enum WORK_MODE w)
+{
+    if (w == config.work_mode) return 0;
+
+    if (config.work_mode)
+    {
+        printf("can not change the work mode from: %d to %d\n", config.work_mode, w);
+        return -1;
+    }
+
+    config.work_mode = w;
+    return 0;
+}
 
 #endif
 
