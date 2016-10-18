@@ -2,3 +2,5 @@
 *.d
 evhttp
 *.a
+.*
+tags
