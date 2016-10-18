@@ -16,6 +16,42 @@
 #include <arpa/inet.h>
 
 #include "format.h"
+#include "sws.h"
+
+
+static int url_from_file(const char *filename)
+{
+    char *buf;
+    size_t size;
+    if (sws_fileread(filename, &buf, &size))
+    {
+        printf("read file fail!: %s: %s\n", filename, geterr());
+        return  -1;
+    }
+
+    uint linenu;
+    uint i;
+    linenu = 0;
+    for (i=0; i < size; ++i)
+    {
+        if (buf[i] == '\n') ++linenu;
+    }
+
+    config.urls = malloc(sizeof(char *) * linenu);
+    config.urls[0] = buf;
+    config.urls_n += 1;
+    for (i=0; i < size; ++i)
+    {
+        if (buf[i] == '\n')
+        {
+            buf[i] = 0;
+            config.urls[config.urls_n] = buf + i + 1;
+            config.urls_n += 1;
+        }
+    }
+    --config.urls_n;
+    printf("Total: %d\n", config.urls_n);
+}
 
 int sum_handler(aeEventLoop *el, long long id, void * priv)
 {
@@ -94,6 +130,9 @@ int arg_parser(int argc, char **argv)
             case 'n': config.total_limit      = atoi(optarg); break;
             case 'r': config.recycle          = optarg;       break;
             case 'm': config.method           = optarg;       break;
+            case 'M':
+                      url_from_file(optarg);
+                      break;
             case 'w':
                       if (0 != format_compile(&config, optarg, 0))
                           return SWS_ERR;
