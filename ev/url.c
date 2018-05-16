@@ -96,6 +96,7 @@ static bool check_limit()
 void random_url(struct http *h)
 {
     size_t l, c, len;
+    int r;
     int index = config.index;
     config.index += 1;
 
@@ -106,14 +107,16 @@ void random_url(struct http *h)
     h->url[l] = '/';
     ++l;
 
-    len = strlen(letters);
-    while (index)
-    {
-        c = index % len;
-        h->url[l] = letters[c];
-        ++l;
-        index = index / len;
-    }
+    l += sprintf(&h->url[l], "%x", rand() % config.rand_max);
+
+    //len = strlen(letters);
+    //while (index)
+    //{
+    //    c = index % len;
+    //    h->url[l] = letters[c];
+    //    ++l;
+    //    index = index / len;
+    //}
 
     h->url[l] = 0;
     h->remote = &config.remote;

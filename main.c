@@ -108,8 +108,21 @@ int arg_parser(int argc, char **argv)
         {
             case 's': config.sum   = true; continue;
             case 'R':
-                      if (work_mode(WORK_MODE_RANDOM)) return SWS_ERR;
+                      if (work_mode(WORK_MODE_RANDOM))
+                          return SWS_ERR;
+
+                      if (i + 1 >= argc)
+                      {
+                          continue;
+                      }
+                      if (argv[i + 1][0] == '-')
+                      {
+                          continue;
+                      }
+                      config.rand_max = atoi(argv[i + 1]);
+                      ++i;
                       continue;
+
             case '\0':
                       printf("arg: - : error\n");
                       return SWS_ERR;
@@ -266,12 +279,15 @@ int main(int argc, char **argv)
     if (SWS_OK != arg_parser(argc, argv)) return SWS_ERR;
     if (SWS_OK != config_init(argc, argv)) return SWS_ERR;
 
+    srand(time(NULL));
+
     int p = config.parallel;
     while (p)
     {
         http_new();
         p--;
     }
+
 
     gettimeofday(&start, NULL);
     aeMain(config.el);

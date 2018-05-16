@@ -178,6 +178,7 @@ struct config{
     char *fmt_pos;
 
     int work_mode;
+    int rand_max;
 
 };
 

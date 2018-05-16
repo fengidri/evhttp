@@ -3,24 +3,44 @@ http client with ae event lib for analytics or benchmark.
 
 # work mode
 evhttp support three work mode: URLS, FILE, RANDOM.
-* URLS: get the urls from the command line
+## URLS
+This mode get the urls from the command line
+
 ```
 evhttp test.com/test
 ```
 
-* FILE: get the urls from the file specialed by -F
+## FILE
+
+Get the urls from the file specialed by -F
 ```
 evhttp -F urls
 ```
 
-* RANDOME: use the opt -R to work as RANDOME. This mode will request use randome
+## RANDOME
+
+Use the opt -R to work as RANDOME. This mode will request use randome
 url.
 
 ```
-evhttp -f T -R -h 127.0.0.1
+evhttp  -R  -f T -h 127.0.0.1
 ```
 
+The random url like to:
 
+```
+/<flag><num>/<random>
+```
+
+`flag` can be set by -f. `num` will differ in defferent forked process.
+
+And default addr and port is 127.0.0.1 and 80; Can be set by -h, -p, -H.
+
+The option (if exists) for -R special the RAND\_MAX.
+
+```
+evhttp  -R 1000 -f T -h 127.0.0.1
+```
 
 # command line args
 ## remote
@@ -40,9 +60,6 @@ The is options for the global remote info.
      * n: when request times target the limit.
      * b,k,m,g,t: is the total bytes recved by net.
 
-## random
-* -f: set the flag for random url;
-
 ## debug
 * -v: debug level, print the request and response header and etc;
 * -s: sum level, print the sum info every 1s
@@ -50,17 +67,6 @@ The is options for the global remote info.
 # URL
 if not special url, then evhttp will use random url.
 
-## random url
-The random url like to:
-
-```
-/<flag><num>/<random>
-```
-
-`flag` can be set by -f. `num` will differ in defferent forked process.
-
-The default host is 127.0.0.1. And default addr and port is 127.0.0.1 and 80;
-Can be set by -h, -p, -H.
 
 ## special url
 The url must include the domain name and the url. So the http\_host will use the

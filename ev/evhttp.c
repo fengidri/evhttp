@@ -32,6 +32,7 @@ struct config config = {
     .method        = "GET",
     .print         = PRINT_RESPONSE | PRINT_REQUEST | PRINT_CON | PRINT_DNS,
     .keepalive     = true,
+    .rand_max      = RAND_MAX,
 };
 
 static inline int ev_recv(int fd, char *buf, size_t len)
