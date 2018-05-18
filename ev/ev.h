@@ -15,15 +15,6 @@
 void logdebug(const char *fmt, ...);
 void update_time(struct http *h, enum http_state state);
 
-static inline void logerr(struct http *h, const char *fmt, ...)
-{
-    va_list arg_ptr;
-    printf("%d: ", h->port);
-
-    va_start(arg_ptr, fmt);
-    vprintf(fmt, arg_ptr);
-    va_end(arg_ptr);
-}
 
 
 #endif

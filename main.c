@@ -72,8 +72,8 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     band[n] = 0;
 
     config.sum_recv_cur = 0;
-    printf("Total: %d OK: %lld Active: %d Recv: %s Speed: %s Band: %s\n",
-            config.total, config.sum_status_200, config.active,
+    printf("Total: %d 200: %lld Active: %d Fail: %d Recv: %s Speed: %s Band: %s\n",
+            config.total, config.sum_status_200, config.active, config.fail_n,
             recv, speed, band);
 
     return 1000;

@@ -149,6 +149,7 @@ struct config{
     int         total;
     int         total_limit;
     int         active;
+    int         fail_n;
 
     const char *recycle;
     int         recycle_times;

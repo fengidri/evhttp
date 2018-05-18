@@ -35,6 +35,21 @@ struct config config = {
     .rand_max      = RAND_MAX,
 };
 
+
+static inline void logerr(struct http *h, const char *fmt, ...)
+{
+    va_list arg_ptr;
+    if (config.sum)
+    {
+        return;
+    }
+    printf("%d: ", h->port);
+
+    va_start(arg_ptr, fmt);
+    vprintf(fmt, arg_ptr);
+    va_end(arg_ptr);
+}
+
 static inline int ev_recv(int fd, char *buf, size_t len)
 {
     int n;
@@ -283,7 +298,11 @@ void ev_handler(aeEventLoop *el, int fd, void *priv, int mask)
     do{
         ret = httpsm(h, mask);
         if (SWS_ERR == ret)
+        {
             http_destory(h);
+            ++config.fail_n;
+            http_new();
+        }
     }while(ret == SWS_AG);
 }
 
