@@ -315,7 +315,8 @@ int httpsm(struct http *h, int mask)
             update_time(h, HTTP_NEW);
             if (!get_url(h))
             {
-                return SWS_ERR;
+                http_destory(h);
+                return SWS_OK;
             }
             if (h->fd > -1)
                 h->next_state = HTTP_SEND_REQUEST; // keepalive
