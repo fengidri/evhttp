@@ -61,14 +61,30 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     char speed[20];
     char band[20];
     int n;
+    static struct timeval start;
+    struct timeval now;
+    int t;
+
+    if (!start)
+    {
+        gettimeofday(&start, NULL);
+        t = 1000;
+    }
+    else{
+        gettimeofday(&now, NULL);
+
+        t = timeval_diff(start, now);
+
+        start = now;
+    }
 
     n = sws_size_fmt(recv, sizeof(recv) - 1, config.sum_recv);
     recv[n] = 0;
 
-    n = sws_size_fmt(speed, sizeof(speed) - 1, config.sum_recv_cur);
+    n = sws_size_fmt(speed, sizeof(speed) - 1, config.sum_recv_cur * 1000 / t);
     speed[n] = 0;
 
-    n = sws_size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 8);
+    n = sws_size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 1000/ t *  8);
     band[n] = 0;
 
     config.sum_recv_cur = 0;
