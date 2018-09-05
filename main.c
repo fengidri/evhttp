@@ -65,7 +65,7 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     struct timeval now;
     int t;
 
-    if (!start)
+    if (!start.tv_sec)
     {
         gettimeofday(&start, NULL);
         t = 1000;
