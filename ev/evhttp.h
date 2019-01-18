@@ -165,6 +165,8 @@ struct config{
     long long          sum_recv_cur;
     long long          sum_status_200;
     long long          sum_status_other;
+    long long          sum_time_total;
+    long long          sum_time_total_n;
 
     bool    keepalive;
 

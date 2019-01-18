@@ -87,10 +87,18 @@ int sum_handler(aeEventLoop *el, long long id, void * priv)
     n = sws_size_fmt(band, sizeof(band) - 1, config.sum_recv_cur * 1000/ t *  8);
     band[n] = 0;
 
+    int ms;
+
+    ms = config.sum_time_total_n ? config.sum_time_total/config.sum_time_total_n: 0;
+
     config.sum_recv_cur = 0;
-    printf("Total: %d 200: %lld Active: %d Fail: %d Recv: %s Speed: %s Band: %s\n",
-            config.total, config.sum_status_200, config.active, config.fail_n,
+    printf("Total: %d Active: %d 200: %lld Fail: %d ArgTime: %dms Recv: %s Speed: %s Band: %s\n",
+            config.total, config.active, config.sum_status_200, config.fail_n,
+            ms,
             recv, speed, band);
+
+    config.sum_time_total = 0;
+    config.sum_time_total_n = 0;
 
     return 1000;
 }

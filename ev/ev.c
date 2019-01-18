@@ -71,6 +71,8 @@ void update_time(struct http *h, enum http_state state)
         case HTTP_END:
             h->time_trans = timeval_diff(h->time_start_read, now);
             h->time_total = timeval_diff(h->time_send_request, now);
+            config.sum_time_total += h->time_total;
+            config.sum_time_total_n += 1;
             break;
 
         default:
